@@ -1,0 +1,4 @@
+node_modules/
+data/morphgnt/
+dist/
+.DS_Store
