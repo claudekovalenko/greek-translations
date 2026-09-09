@@ -2,7 +2,11 @@
 
 Read Greek New Testament passages, write your own English translation under each verse, and drill parsing and conjugation with your answers checked against the morphologically tagged text.
 
+**Live app:** https://claudekovalenko.github.io/greek-translations/ (deployed from this repository by GitHub Actions; see below).
+
 **No build step, no server.** Open `index.html` in a browser, or serve the folder with any static file server. Everything you write stays in your browser (localStorage) until you export it.
+
+It is a Progressive Web App: install it from the browser menu (or the *Install app* button) to get an icon on your phone or desktop. A service worker keeps the app shell, the fonts, and every book you have opened available offline.
 
 ## What it does
 
@@ -33,6 +37,10 @@ npm run fetch-data      # downloads the 27 MorphGNT files into data/morphgnt/
 npm run build           # dist/anagnosis.html  — one file, fetches text on demand
 npm run build:embed     # dist/anagnosis-offline.html — one file with the whole NT inside (~5 MB)
 ```
+
+## Deploying (GitHub Pages)
+
+`.github/workflows/pages.yml` runs the tests, downloads the MorphGNT files so the site is self-contained, and publishes to GitHub Pages on every push to `main` (and to the development branch). One-time setup in the repository: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The workflow also tries to enable Pages itself on its first run.
 
 ## Development
 

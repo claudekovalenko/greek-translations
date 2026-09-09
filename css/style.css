@@ -116,6 +116,7 @@ button, input, select, textarea {
 
 .top {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
@@ -677,6 +678,51 @@ details.paste .field-row { margin-top: 0.5rem; }
 .summary-line {
   font-size: 0.9rem;
   color: var(--ink-2);
+}
+
+/* collapsible rail group (collapsed on phones by script) */
+.rail-more { display: contents; }
+.rail-more-summary { display: none; }
+@media (max-width: 900px) {
+  .rail-more { display: block; }
+  .rail-more-summary {
+    display: list-item;
+    cursor: pointer;
+    padding: 0.6rem 1.1rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .rail-more[open] .rail-more-summary { margin-bottom: 1rem; }
+  .rail-more[open] > .panel + .panel { margin-top: 1rem; }
+  .verse { grid-template-columns: 1fr; }
+  .verse-ref { text-align: left; padding-top: 0; }
+  .greek { font-size: 1.35rem; }
+  .top { padding: 0.75rem 1rem; gap: 0.5rem; align-items: center; }
+  .tagline { display: none; }
+  .wordmark { font-size: 1.3rem; }
+  .top-actions .btn { padding: 0.35rem 0.6rem; font-size: 0.9rem; }
+  .rail-more[open] .credits { margin-top: 1rem; }
+}
+
+/* update toast */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.6rem 0.8rem 0.6rem 1rem;
+  background: var(--ink);
+  color: var(--bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  z-index: 50;
+  font-size: 0.95rem;
 }
 
 /* import input hidden */

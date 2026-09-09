@@ -33,9 +33,51 @@ init();
 
 async function init() {
   bindRail();
+  bindPwa();
   applySettings();
   render();
   if (!state.passages.length) await loadSample();
+}
+
+// ---------------------------------------------------------------------------
+// PWA: service worker, install prompt, update notice, compact rail on phones
+
+function bindPwa() {
+  const narrow = matchMedia('(max-width: 900px)');
+  const more = $('#rail-more');
+  const syncRail = () => { more.open = !narrow.matches; };
+  syncRail();
+  narrow.addEventListener('change', syncRail);
+
+  let deferredPrompt = null;
+  const installBtn = $('#install-btn');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.hidden = false;
+  });
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice.catch(() => null);
+    deferredPrompt = null;
+    installBtn.hidden = true;
+  });
+  window.addEventListener('appinstalled', () => { installBtn.hidden = true; });
+
+  if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
+  navigator.serviceWorker.register('./sw.js').then((reg) => {
+    // A waiting worker after an update means new files are ready.
+    const notify = () => { $('#update-toast').hidden = false; };
+    if (reg.waiting && navigator.serviceWorker.controller) notify();
+    reg.addEventListener('updatefound', () => {
+      const sw = reg.installing;
+      sw?.addEventListener('statechange', () => {
+        if (sw.state === 'installed' && navigator.serviceWorker.controller) notify();
+      });
+    });
+  }).catch(() => { /* offline features unavailable; the app still works */ });
+  $('#update-reload').addEventListener('click', () => location.reload());
 }
 
 async function loadSample() {

@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Anagnosis</title>
 <meta name="description" content="Read Greek New Testament passages, write your translation beneath each verse, and drill parsing and conjugation with answers checked against the tagged text.">
+<meta name="theme-color" content="#2b4c9b">
+<meta name="color-scheme" content="light dark">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Anagnosis">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -17,6 +25,7 @@
     <span class="tagline">Read the Greek. Write the English. Parse what you meet.</span>
   </div>
   <div class="top-actions">
+    <button class="btn btn-primary btn-sm" id="install-btn" type="button" hidden>Install app</button>
     <button class="btn btn-quiet" id="help-btn" type="button">How it works</button>
   </div>
 </header>
@@ -41,6 +50,8 @@
       </details>
     </section>
 
+    <details class="rail-more" id="rail-more" open>
+    <summary class="rail-more-summary">Score, options and export</summary>
     <section class="panel">
       <h2>This session</h2>
       <div class="score-grid">
@@ -74,10 +85,16 @@
     </section>
 
     <p class="credits">Greek text: <a href="https://sblgnt.com" target="_blank" rel="noopener">SBL Greek New Testament</a>, © SBL &amp; Logos, used under the SBLGNT EULA. Morphology and lemmas: <a href="https://github.com/morphgnt/sblgnt" target="_blank" rel="noopener">MorphGNT</a>, CC BY-SA 3.0. Your work stays in this browser.</p>
+    </details>
   </aside>
 
   <section class="work" id="passages" aria-live="polite"></section>
 </main>
+
+<div class="toast" id="update-toast" role="status" hidden>
+  <span>A new version of Anagnosis is ready.</span>
+  <button class="btn btn-sm btn-primary" type="button" id="update-reload">Reload</button>
+</div>
 
 <dialog id="help">
   <h2>How it works</h2>
@@ -88,6 +105,7 @@
     <li><b>Verbs</b> also offer <i>Conjugate</i>: pick a tense, voice and mood and fill in the six forms. Nouns, adjectives, pronouns and articles offer <i>Decline</i>. Forms attested in the New Testament are marked <span class="src att">sblgnt</span>; regular paradigms the app generates are marked <span class="src">generated</span>. Where neither exists, the cell is left for you to check against your grammar.</li>
     <li><b>Done</b> collapses the panel and underlines the word: green when you had it right, red when you were corrected.</li>
     <li><b>Export</b> your Greek, translation and parsing notes as Markdown, plain text or a printed page. A JSON backup restores the whole session.</li>
+    <li><b>Install it</b> from your browser menu (or the <i>Install app</i> button) to get an icon on your phone or desktop. Passages you have opened stay readable offline.</li>
   </ol>
   <form method="dialog"><button class="btn btn-primary" type="submit">Close</button></form>
 </dialog>
