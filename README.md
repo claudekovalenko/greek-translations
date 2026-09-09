@@ -11,7 +11,7 @@ It is a Progressive Web App: install it from the browser menu (or the *Install a
 ## What it does
 
 1. **Add a passage** by reference (`John 3:16-18`, `Rom 8`, `Mk 1:1-2:5`, `1 Cor 13.4–7`, `Jude 3-5`). The Greek text and its word-by-word parsing are fetched from the [MorphGNT SBLGNT](https://github.com/morphgnt/sblgnt) repository and cached in the browser. The same box takes verses back out: type a reference and press **Remove**, or use the ✕ beside any verse number. Passage headings follow what is left.
-2. **Translate** in the box under each verse. It saves as you type.
+2. **Translate** in the box under each verse. It saves as you type. Click a verse number to fold that verse away once you are done with it: folded verses show your translation on one line, and *Fold all* folds the passage. Beside the number, **gloss** puts the English under every word of that one verse.
 3. **Click a word** to open its panel right below the verse:
    - **Parse**: choose person, tense, voice, mood, number (or case, number, gender), then *Check*. Wrong fields show the correct value. *Reveal* gives the answer and marks the word as corrected.
    - **Conjugate** (verbs): pick a tense, voice and mood and fill in the six forms. The answer key uses forms attested in the New Testament first (marked `sblgnt`), then regular paradigms the app generates (marked `generated`). Where neither exists the cell is left for you to check by hand.

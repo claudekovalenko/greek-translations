@@ -7,7 +7,7 @@ import { parseMorphGNT, groupVerses, selectVerses } from './morphgnt.js';
 import { FIELDS, decodeCode, drillFields, checkParse, describeParse, posLabel, isInflected, MP_IDENTICAL_TENSES } from './parsing.js';
 import { analyzeVerb, conjugate, declineNominal, CONJUGATIONS, PERSONS, IMPV_PERSONS, NOUN_CELLS } from './paradigm.js';
 import { formsMatch, stripPunctuation } from './greek.js';
-import { loadState, saveState, clearState, emptyState, wordKey, uid, scoreSummary } from './state.js';
+import { loadState, saveState, clearState, emptyState, wordKey, verseKey, uid, scoreSummary } from './state.js';
 import { toMarkdown, toJSON, toPlainText, download, copyText } from './export.js';
 import { SAMPLE_REF, SAMPLE_TEXT } from './sample.js';
 import { loadLexicon, lexiconReady, entryFor, shortGloss, frequencyBand, passageVocabulary } from './lexicon.js';
@@ -240,6 +240,7 @@ function removeReference(text) {
         delete state.drills[wordKey(verse, wi)];
         delete state.revealed[wordKey(verse, wi)];
       });
+      forgetVerse(verse);
     }
     if (keep.length !== passage.verses.length) {
       passage.verses = keep;
@@ -254,6 +255,11 @@ function removeReference(text) {
   saveState(state);
   render();
   setStatus(`Removed ${doomed.length} verse${doomed.length === 1 ? '' : 's'} (${ref.label}).`);
+}
+
+function forgetVerse(verse) {
+  delete state.collapsed[verseKey(verse)];
+  delete state.verseGloss[verseKey(verse)];
 }
 
 /** Keep a passage's heading honest after verses are taken out of it. */
@@ -340,6 +346,7 @@ function renderPassage(p) {
     <header class="passage-head">
       <h2 class="passage-title">${esc(p.label)}<span class="passage-meta">${esc(meta)}</span></h2>
       <span class="passage-tools">
+        <button class="btn btn-quiet btn-sm" type="button" data-fold-all="${p.id}">${allFolded(p) ? 'Open all' : 'Fold all'}</button>
         <button class="btn btn-quiet btn-sm" type="button" data-clear-glosses="${p.id}">Hide meanings</button>
         <button class="btn btn-quiet btn-sm" type="button" data-remove="${p.id}" aria-label="Remove ${esc(p.label)}">Remove</button>
       </span>
@@ -384,18 +391,34 @@ function renderVocabRow({ lemma, count, entry }) {
 
 function renderVerse(p, v, vi) {
   const refLabel = p.plain ? String(v.v) : `${v.c}:${v.v}`;
-  const placeholder = p.plain ? `Your translation of line ${v.v}` : `Your translation of ${BOOK_BY_ID.get(v.b)?.abbr ?? ''} ${v.c}:${v.v}`;
+  const name = p.plain ? `line ${v.v}` : `${BOOK_BY_ID.get(v.b)?.abbr ?? ''} ${v.c}:${v.v}`;
+  const key = verseKey(v);
+  const collapsed = !!state.collapsed?.[key];
+  const glossed = !!state.verseGloss?.[key];
+  const classes = ['verse'];
+  if (collapsed) classes.push('collapsed');
+  if (glossed) classes.push('interlinear');
   return `
-  <section class="verse" data-verse="${vi}">
+  <section class="${classes.join(' ')}" data-verse="${vi}">
     <div class="verse-ref">
-      <span>${esc(refLabel)}</span>
-      <button class="verse-remove" type="button" data-remove-verse="${vi}" title="Remove this verse" aria-label="Remove ${esc(p.plain ? `line ${v.v}` : refLabel)}">✕</button>
+      <button class="verse-num" type="button" data-toggle-verse="${vi}" aria-expanded="${!collapsed}" title="${collapsed ? 'Open' : 'Fold away'} ${esc(name)}"><span class="caret" aria-hidden="true"></span>${esc(refLabel)}</button>
+      <span class="verse-tools">
+        <button class="verse-tool${glossed ? ' on' : ''}" type="button" data-verse-gloss="${vi}" aria-pressed="${glossed}" title="${glossed ? 'Hide the English under this verse' : 'Show the English under every word of this verse'}">gloss</button>
+        <button class="verse-tool remove" type="button" data-remove-verse="${vi}" title="Remove this verse" aria-label="Remove ${esc(name)}">✕</button>
+      </span>
     </div>
+    <div class="verse-peek" data-toggle-verse="${vi}" role="button" tabindex="0">${esc(versePeek(v))}</div>
     <div class="verse-body">
       <p class="greek" lang="grc">${v.words.map((w, wi) => renderWord(p, v, w, wi)).join(' ')}</p>
-      <textarea class="translation${v.translation?.trim() ? ' filled' : ''}" data-translation placeholder="${esc(placeholder)}" rows="2" lang="en">${esc(v.translation ?? '')}</textarea>
+      <textarea class="translation${v.translation?.trim() ? ' filled' : ''}" data-translation placeholder="${esc(`Your translation of ${name}`)}" rows="2" lang="en">${esc(v.translation ?? '')}</textarea>
     </div>
   </section>`;
+}
+
+/** What a folded verse shows: your translation if you have written one, else the Greek. */
+function versePeek(verse) {
+  const text = verse.translation?.trim() || verse.words.map((w) => w.text).join(' ');
+  return text.length > 90 ? `${text.slice(0, 88).trimEnd()}…` : text;
 }
 
 function renderWord(p, v, w, wi) {
@@ -433,6 +456,47 @@ els.passages.addEventListener('click', (e) => {
     }
     return;
   }
+  const toggleVerse = e.target.closest('[data-toggle-verse]');
+  if (toggleVerse) {
+    const { verse, verseEl } = contextOf(toggleVerse);
+    const key = verseKey(verse);
+    const collapsed = !state.collapsed[key];
+    setCollapsed(key, collapsed);
+    // The summary line is built at render time; refresh it so it shows the
+    // translation as it stands right now.
+    verseEl.querySelector('.verse-peek').textContent = versePeek(verse);
+    verseEl.classList.toggle('collapsed', collapsed);
+    verseEl.querySelector('.verse-num').setAttribute('aria-expanded', String(!collapsed));
+    if (collapsed && ui.open?.verseIndex === Number(verseEl.dataset.verse)) closeDrill();
+    refreshFoldAll(verseEl.closest('[data-passage]')?.dataset.passage);
+    saveState(state);
+    return;
+  }
+  const verseGloss = e.target.closest('[data-verse-gloss]');
+  if (verseGloss) {
+    const { verse, verseEl } = contextOf(verseGloss);
+    const key = verseKey(verse);
+    const on = !state.verseGloss[key];
+    if (on) state.verseGloss[key] = true;
+    else delete state.verseGloss[key];
+    verseEl.classList.toggle('interlinear', on);
+    verseGloss.classList.toggle('on', on);
+    verseGloss.setAttribute('aria-pressed', String(on));
+    verseGloss.title = on ? 'Hide the English under this verse' : 'Show the English under every word of this verse';
+    saveState(state);
+    return;
+  }
+  const foldAll = e.target.closest('[data-fold-all]');
+  if (foldAll) {
+    const passage = state.passages.find((x) => x.id === foldAll.dataset.foldAll);
+    if (!passage) return;
+    const fold = !allFolded(passage);
+    passage.verses.forEach((v) => setCollapsed(verseKey(v), fold));
+    if (fold) ui.open = null;
+    saveState(state);
+    render();
+    return;
+  }
   const removeVerse = e.target.closest('[data-remove-verse]');
   if (removeVerse) {
     const { passage, verse, verseIndex } = contextOf(removeVerse);
@@ -444,6 +508,7 @@ els.passages.addEventListener('click', (e) => {
       delete state.drills[wordKey(verse, wi)];
       delete state.revealed[wordKey(verse, wi)];
     });
+    forgetVerse(verse);
     passage.verses.splice(verseIndex, 1);
     relabel(passage);
     if (!passage.verses.length) {
@@ -459,7 +524,10 @@ els.passages.addEventListener('click', (e) => {
   if (clear) {
     const passage = state.passages.find((x) => x.id === clear.dataset.clearGlosses);
     if (!passage) return;
-    passage.verses.forEach((v, vi) => v.words.forEach((_, wi) => { delete state.revealed[wordKey(v, wi)]; }));
+    passage.verses.forEach((v) => {
+      delete state.verseGloss[verseKey(v)];
+      v.words.forEach((_, wi) => { delete state.revealed[wordKey(v, wi)]; });
+    });
     saveState(state);
     render();
     return;
@@ -479,11 +547,25 @@ els.passages.addEventListener('toggle', (e) => {
 }, true);
 
 els.passages.addEventListener('keydown', (e) => {
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.w[data-word]')) {
-    e.preventDefault();
-    openDrillFrom(e.target);
-  }
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  if (e.target.matches('.w[data-word]')) { e.preventDefault(); openDrillFrom(e.target); }
+  else if (e.target.matches('.verse-peek')) { e.preventDefault(); e.target.click(); }
 });
+
+function setCollapsed(key, collapsed) {
+  if (collapsed) state.collapsed[key] = true;
+  else delete state.collapsed[key];
+}
+
+function allFolded(passage) {
+  return passage.verses.length > 0 && passage.verses.every((v) => state.collapsed[verseKey(v)]);
+}
+
+function refreshFoldAll(passageId) {
+  const passage = state.passages.find((x) => x.id === passageId);
+  const btn = passageId && $(`[data-fold-all="${passageId}"]`);
+  if (passage && btn) btn.textContent = allFolded(passage) ? 'Open all' : 'Fold all';
+}
 
 els.passages.addEventListener('input', (e) => {
   if (e.target.matches('[data-translation]')) {

@@ -10,6 +10,8 @@ export function emptyState() {
     paradigms: {},   // "lemma|TVM" → { correct, total, at }
     openVocab: {},   // passage id → is its glossary open
     revealed: {},    // word key → its meaning has been asked for
+    collapsed: {},   // verse key → the verse is folded away
+    verseGloss: {},  // verse key → show the English under every word of it
     settings: { strict: false, hints: true, interlinear: false },
   };
 }
@@ -52,7 +54,11 @@ export function clearState() {
 }
 
 export function wordKey(verse, index) {
-  return `${verse.b}.${verse.c}.${verse.v}.${index}`;
+  return `${verseKey(verse)}.${index}`;
+}
+
+export function verseKey(verse) {
+  return `${verse.b}.${verse.c}.${verse.v}`;
 }
 
 export function uid() {
