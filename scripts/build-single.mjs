@@ -37,7 +37,8 @@ for (const name of ORDER) js += transform(name, await read(`js/${name}.js`)) + '
 
 let html = await read('index.html');
 const css = await read('css/style.css');
-html = html.replace(/<link rel="stylesheet" href="css\/style.css">/, `<style>\n${css}\n</style>`);
+// Replacer functions: a plain replacement string would treat `$` and `html = html.replace(/<link rel="stylesheet" href="css\/style.css">/, `<style>\n${css}\n</style>`);` as patterns.
+html = html.replace(/<link rel="stylesheet" href="css\/style.css">/, () => `<style>\n${css}\n</style>`);
 
 let dataScript = '';
 if (embed) {
@@ -58,7 +59,7 @@ if (embed) {
   console.log(`Embedded ${Object.keys(data).length} books (${(json.length / 1e6).toFixed(1)} MB).`);
 }
 
-html = html.replace(/<script type="module" src="js\/main.js"><\/script>/, `${dataScript}<script type="module">\n${js}\n</script>`);
+html = html.replace(/<script type="module" src="js\/main.js"><\/script>/, () => `${dataScript}<script type="module">\n${js}\n</script>`);
 
 if (artifact) {
   const head = html.match(/<head>([\s\S]*?)<\/head>/)[1]

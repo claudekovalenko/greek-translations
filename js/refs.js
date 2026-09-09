@@ -32,9 +32,17 @@ export function parseReference(input) {
   const s = input.trim().replace(/[–—]/g, '-').replace(/\s+/g, ' ');
   const m = s.match(/^((?:[1-3]|i{1,3}|first|second|third|1st|2nd|3rd)?\s*[a-zA-Z]+\.?)\s*(\d+)?(?:\s*[:.,]\s*(\d+))?(?:\s*-\s*(\d+)(?:\s*[:.]\s*(\d+))?)?$/i);
   if (!m) throw new Error(`Could not read "${input}". Try a form like "John 3:16-18" or "Rom 8".`);
-  const [, bookName, ch, vs, endA, endB] = m;
+  let [, bookName, ch, vs, endA, endB] = m;
   const book = findBook(bookName);
   if (!book) throw new Error(`Unknown book "${bookName.trim()}".`);
+  if (book.chapters === 1) {
+    // Single-chapter books: "Jude" is the whole book, "Jude 3-5" means verses 3-5.
+    if (!ch) ch = "1";
+    else if (!vs && (Number(ch) > 1 || endA != null)) {
+      if (endB != null) throw new Error(`${book.name} has a single chapter; try "${book.abbr} ${ch}-${endA}".`);
+      vs = ch; ch = "1";
+    }
+  }
   if (!ch) throw new Error(`Add a chapter, e.g. "${book.abbr} 1".`);
   const chapter = Number(ch);
   if (chapter < 1 || chapter > book.chapters) throw new Error(`${book.name} has ${book.chapters} chapter${book.chapters === 1 ? '' : 's'}.`);

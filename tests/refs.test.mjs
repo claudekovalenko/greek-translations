@@ -37,3 +37,16 @@ test('rejects bad references with helpful messages', () => {
   assert.throws(() => parseReference('Zork 1:1'), /Unknown book/);
   assert.throws(() => parseReference('John 3:18-16'), /before its start/);
 });
+
+test('single-chapter books take a bare verse number', () => {
+  assert.equal(parseReference('Jude').label, 'Jude 1');
+  let r = parseReference('Jude 3');
+  assert.equal(r.chapter, 1); assert.equal(r.verse, 3); assert.equal(r.label, 'Jude 1:3');
+  r = parseReference('Jude 3-5');
+  assert.equal(r.chapter, 1); assert.equal(r.verse, 3); assert.equal(r.endVerse, 5);
+  r = parseReference('Philemon 4');
+  assert.equal(r.book.id, 18); assert.equal(r.verse, 4);
+  assert.equal(parseReference('2 John 5').label, '2 John 1:5');
+  assert.equal(parseReference('Jude 1:3').label, 'Jude 1:3');
+  assert.equal(parseReference('Jude 1').label, 'Jude 1');
+});
