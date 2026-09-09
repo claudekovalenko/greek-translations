@@ -2,7 +2,7 @@
 
 import { BOOK_BY_ID } from './books.js';
 import { parseReference } from './refs.js';
-import { loadBook, registerBook, loadedWords } from './datasource.js';
+import { loadBook, registerPartial, loadedWords } from './datasource.js';
 import { parseMorphGNT, groupVerses, selectVerses } from './morphgnt.js';
 import { FIELDS, decodeCode, drillFields, checkParse, describeParse, posLabel, isInflected, MP_IDENTICAL_TENSES } from './parsing.js';
 import { analyzeVerb, conjugate, declineNominal, CONJUGATIONS, PERSONS, IMPV_PERSONS, NOUN_CELLS } from './paradigm.js';
@@ -88,7 +88,7 @@ function bindPwa() {
 
 async function loadSample() {
   const words = parseMorphGNT(SAMPLE_TEXT);
-  registerBook(4, words); // partial book, replaced on a full load
+  registerPartial(words);
   const verses = groupVerses(words);
   addPassage({ label: SAMPLE_REF, bookId: 4, verses, sample: true });
   setStatus('Loaded John 3:16-17 as a starting point. Add any passage above.');
@@ -321,7 +321,10 @@ function renderVerse(p, v, vi) {
   const placeholder = p.plain ? `Your translation of line ${v.v}` : `Your translation of ${BOOK_BY_ID.get(v.b)?.abbr ?? ''} ${v.c}:${v.v}`;
   return `
   <section class="verse" data-verse="${vi}">
-    <div class="verse-ref">${esc(refLabel)}</div>
+    <div class="verse-ref">
+      <span>${esc(refLabel)}</span>
+      <button class="verse-remove" type="button" data-remove-verse="${vi}" title="Remove this verse" aria-label="Remove ${esc(p.plain ? `line ${v.v}` : refLabel)}">✕</button>
+    </div>
     <div class="verse-body">
       <p class="greek" lang="grc">${v.words.map((w, wi) => renderWord(p, v, w, wi)).join(' ')}</p>
       <textarea class="translation${v.translation?.trim() ? ' filled' : ''}" data-translation placeholder="${esc(placeholder)}" rows="2" lang="en">${esc(v.translation ?? '')}</textarea>
@@ -362,6 +365,27 @@ els.passages.addEventListener('click', (e) => {
       saveState(state);
       render();
     }
+    return;
+  }
+  const removeVerse = e.target.closest('[data-remove-verse]');
+  if (removeVerse) {
+    const { passage, verse, verseIndex } = contextOf(removeVerse);
+    const written = verse.translation?.trim() || verse.note?.trim();
+    if (written && !confirm(`Remove ${passage.plain ? `line ${verse.v}` : `${BOOK_BY_ID.get(verse.b)?.abbr ?? ''} ${verse.c}:${verse.v}`}? Your translation of it will be deleted.`)) return;
+    // Drill results and revealed meanings are keyed by the verse's reference,
+    // so only this verse's entries need clearing.
+    verse.words.forEach((_, wi) => {
+      delete state.drills[wordKey(verse, wi)];
+      delete state.revealed[wordKey(verse, wi)];
+    });
+    passage.verses.splice(verseIndex, 1);
+    if (!passage.verses.length) {
+      state.passages = state.passages.filter((x) => x !== passage);
+      delete state.openVocab[passage.id];
+    }
+    ui.open = null;
+    saveState(state);
+    render();
     return;
   }
   const clear = e.target.closest('[data-clear-glosses]');

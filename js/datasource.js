@@ -5,7 +5,8 @@
 import { BOOK_BY_ID, REMOTE_BASE } from './books.js';
 import { parseMorphGNT, toCompact, fromCompact } from './morphgnt.js';
 
-const memory = new Map(); // id → words[]
+const memory = new Map(); // id → words[] (complete books only)
+const extra = [];         // words from partial texts, e.g. the opening sample
 const DB_NAME = 'anagnosis';
 const STORE = 'books';
 
@@ -112,15 +113,20 @@ export async function loadBook(id, { onStatus = () => {} } = {}) {
   return { words, source };
 }
 
-/** Register already-parsed words for a book (used for the offline sample). */
-export function registerBook(id, words) {
-  if (!memory.has(id)) memory.set(id, words);
+/**
+ * Add words from a partial text (the opening sample) so their attested forms
+ * are available to the drills. They are deliberately kept out of the book
+ * cache: a few verses must never stand in for the whole book.
+ */
+export function registerPartial(words) {
+  extra.push(...words);
 }
 
-/** All words of every book currently in memory. */
+/** Every word the app currently holds, from whole books and partial texts. */
 export function loadedWords() {
   const out = [];
   for (const words of memory.values()) out.push(...words);
+  out.push(...extra);
   return out;
 }
 
