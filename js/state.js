@@ -9,7 +9,8 @@ export function emptyState() {
     drills: {},      // wordKey → { correct, attempts, given, at }
     paradigms: {},   // "lemma|TVM" → { correct, total, at }
     openVocab: {},   // passage id → is its glossary open
-    settings: { strict: false, hints: true, interlinear: true },
+    revealed: {},    // word key → its meaning has been asked for
+    settings: { strict: false, hints: true, interlinear: false },
   };
 }
 
@@ -19,7 +20,14 @@ export function loadState() {
     if (!raw) return emptyState();
     const parsed = JSON.parse(raw);
     if (!parsed || parsed.version !== 1) return emptyState();
-    return { ...emptyState(), ...parsed, settings: { ...emptyState().settings, ...(parsed.settings ?? {}) } };
+    const state = { ...emptyState(), ...parsed, settings: { ...emptyState().settings, ...(parsed.settings ?? {}) } };
+    // Glosses under every word were briefly the default. They are now shown
+    // only for words you ask about, so clear that setting once.
+    if (!state.glossDefaultReset) {
+      state.settings.interlinear = false;
+      state.glossDefaultReset = true;
+    }
+    return state;
   } catch {
     return emptyState();
   }

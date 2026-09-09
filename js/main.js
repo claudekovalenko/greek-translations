@@ -172,9 +172,9 @@ function bindRail() {
 function applySettings() {
   $('#opt-hints').checked = !!state.settings.hints;
   $('#opt-strict').checked = !!state.settings.strict;
-  $('#opt-interlinear').checked = state.settings.interlinear !== false;
+  $('#opt-interlinear').checked = !!state.settings.interlinear;
   document.body.classList.toggle('hints', !!state.settings.hints);
-  document.body.classList.toggle('interlinear', state.settings.interlinear !== false);
+  document.body.classList.toggle('interlinear', !!state.settings.interlinear);
 }
 
 async function addReference(text) {
@@ -273,7 +273,10 @@ function renderPassage(p) {
   <article class="passage" data-passage="${p.id}">
     <header class="passage-head">
       <h2 class="passage-title">${esc(p.label)}<span class="passage-meta">${esc(meta)}</span></h2>
-      <button class="btn btn-quiet btn-sm" type="button" data-remove="${p.id}" aria-label="Remove ${esc(p.label)}">Remove</button>
+      <span class="passage-tools">
+        <button class="btn btn-quiet btn-sm" type="button" data-clear-glosses="${p.id}">Hide meanings</button>
+        <button class="btn btn-quiet btn-sm" type="button" data-remove="${p.id}" aria-label="Remove ${esc(p.label)}">Remove</button>
+      </span>
     </header>
     ${p.verses.map((v, vi) => renderVerse(p, v, vi)).join('')}
     ${renderVocabList(p)}
@@ -339,7 +342,8 @@ function renderWord(p, v, w, wi) {
   const parse = d ? `${w.lemma} — ${describeParse(w)}` : `${w.lemma || ''} ${posLabel(w)}`.trim();
   const title = entry?.gloss ? `${parse} · ${entry.gloss}` : parse;
   const under = shortGloss(w.lemma);
-  return `<span class="w-unit"><span class="w-line"><span class="${cls.join(' ')}" role="button" tabindex="0" data-word="${wi}" data-pos="${esc(w.pos)}" title="${esc(title)}">${esc(core)}</span>${punct ? `<span class="punct">${esc(punct)}</span>` : ''}</span><span class="wg">${under ? esc(under) : ''}</span></span>`;
+  const revealed = !!state.revealed?.[wordKey(v, wi)];
+  return `<span class="w-unit${revealed ? ' revealed' : ''}"><span class="w-line"><span class="${cls.join(' ')}" role="button" tabindex="0" data-word="${wi}" data-pos="${esc(w.pos)}" title="${esc(title)}">${esc(core)}</span>${punct ? `<span class="punct">${esc(punct)}</span>` : ''}</span><span class="wg">${under ? esc(under) : ''}</span></span>`;
 }
 
 function autosize(ta) {
@@ -358,6 +362,15 @@ els.passages.addEventListener('click', (e) => {
       saveState(state);
       render();
     }
+    return;
+  }
+  const clear = e.target.closest('[data-clear-glosses]');
+  if (clear) {
+    const passage = state.passages.find((x) => x.id === clear.dataset.clearGlosses);
+    if (!passage) return;
+    passage.verses.forEach((v, vi) => v.words.forEach((_, wi) => { delete state.revealed[wordKey(v, wi)]; }));
+    saveState(state);
+    render();
     return;
   }
   const word = e.target.closest('.w[data-word]');
@@ -401,8 +414,16 @@ function contextOf(el) {
 }
 
 function openDrillFrom(wordEl) {
-  const { passage, verseIndex } = contextOf(wordEl);
+  const { passage, verse, verseIndex } = contextOf(wordEl);
   const wordIndex = Number(wordEl.dataset.word);
+  // Asking about a word leaves its meaning under it, so the verse fills in as
+  // you work through it.
+  const word = verse.words[wordIndex];
+  if (shortGloss(word?.lemma)) {
+    state.revealed[wordKey(verse, wordIndex)] = true;
+    wordEl.closest('.w-unit')?.classList.add('revealed');
+    saveState(state);
+  }
   const same = ui.open && ui.open.passageId === passage.id && ui.open.verseIndex === verseIndex && ui.open.wordIndex === wordIndex;
   if (same) { closeDrill(); return; }
   ui.open = { passageId: passage.id, verseIndex, wordIndex };

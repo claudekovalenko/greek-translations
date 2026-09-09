@@ -17,7 +17,7 @@ It is a Progressive Web App: install it from the browser menu (or the *Install a
    - **Conjugate** (verbs): pick a tense, voice and mood and fill in the six forms. The answer key uses forms attested in the New Testament first (marked `sblgnt`), then regular paradigms the app generates (marked `generated`). Where neither exists the cell is left for you to check by hand.
    - **Decline** (nouns, adjectives, pronouns, articles): the same, on an eight-cell case/number table.
    - **Done** collapses the panel and underlines the word: green if you had it right, red if you were corrected.
-4. **Read with the English underneath.** Each Greek word carries its dictionary meaning below it, so an unknown word never stops you. Turn it off in Options to test yourself. Clicking a word gives the full dictionary entry and how often it occurs in the New Testament, and under each passage a **Glossary** lists every distinct word, rarest first.
+4. **Ask for a meaning when you need one.** Click a word you do not know and its English stays under it, so the verse fills in as you work through it; *Hide meanings* in the passage header clears them, and an option shows every word at once. The word panel also gives the full dictionary entry and how often the word occurs in the New Testament, and under each passage a **Glossary** lists every distinct word, rarest first.
 5. **Export** your Greek, translations and parsing notes as Markdown, plain text, or print to PDF. A JSON backup restores the whole session on another machine. The Markdown export includes a glossary table per passage.
 
 You can also paste Greek text yourself (one verse per line). Pasted text has no parsing data, so only the translation boxes are available for it.
