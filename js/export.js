@@ -4,7 +4,7 @@ import { BOOK_BY_ID } from './books.js';
 import { describeParse, isInflected } from './parsing.js';
 import { verseText } from './morphgnt.js';
 import { wordKey } from './state.js';
-import { passageVocabulary, entryFor } from './lexicon.js';
+import { passageVocabulary } from './lexicon.js';
 
 function refOf(verse) {
   const book = BOOK_BY_ID.get(verse.b);
@@ -35,21 +35,10 @@ export function toMarkdown(state) {
     if (passage.plain) continue;
     const vocab = passageVocabulary(passage).filter((r) => r.entry?.gloss);
     if (!vocab.length) continue;
-    lines.push(`## Vocabulary — ${passage.label}`, '');
+    lines.push(`## Glossary — ${passage.label}`, '');
     lines.push('| Word | Meaning | Here | In the NT |', '| --- | --- | ---: | ---: |');
-    for (const { lemma, count, entry } of vocab) {
-      const star = state.vocab?.[lemma] ? ' ★' : '';
-      lines.push(`| ${entry.headword}${star} | ${entry.gloss} | ${count} | ${entry.frequency} |`);
-    }
-    lines.push('');
-  }
-
-  const deck = Object.entries(state.vocab ?? {});
-  if (deck.length) {
-    lines.push('## Review deck', '');
-    for (const [lemma, card] of deck.sort((a, b) => (a[1].box ?? 0) - (b[1].box ?? 0))) {
-      const entry = entryFor(lemma);
-      lines.push(`- ${entry?.headword ?? lemma} — ${entry?.gloss ?? '—'} (box ${(card.box ?? 0) + 1}${card.seen ? `, ${card.right}/${card.seen} recalled` : ''})`);
+    for (const { count, entry } of vocab) {
+      lines.push(`| ${entry.headword} | ${entry.gloss} | ${count} | ${entry.frequency} |`);
     }
     lines.push('');
   }

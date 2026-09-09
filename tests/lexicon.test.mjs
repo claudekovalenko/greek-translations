@@ -51,3 +51,14 @@ test('passage vocabulary lists distinct lemmas rarest first', () => {
   assert.deepEqual(freqs, [...freqs].sort((a, b) => a - b), 'sorted by NT frequency');
   assert.equal(vocab.find((v) => v.lemma === 'κόσμος').count, 4, 'counts occurrences in the passage');
 });
+
+test('short glosses fit under a word', async () => {
+  const { shortGloss } = await import('../js/lexicon.js');
+  assert.equal(shortGloss('ἀγαπάω'), 'I love');
+  assert.equal(shortGloss('θεός'), 'God, a god');
+  assert.equal(shortGloss('δίδωμι'), 'I offer, give');
+  assert.equal(shortGloss('ἀπόλλυμι'), 'I destroy, lose');
+  assert.ok(shortGloss('κόσμος').startsWith('the world'));
+  assert.ok(shortGloss('αἰώνιος').length <= 24);
+  assert.equal(shortGloss('not-a-lemma'), null);
+});

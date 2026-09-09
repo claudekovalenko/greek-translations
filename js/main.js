@@ -10,8 +10,7 @@ import { formsMatch, stripPunctuation } from './greek.js';
 import { loadState, saveState, clearState, emptyState, wordKey, uid, scoreSummary } from './state.js';
 import { toMarkdown, toJSON, toPlainText, download, copyText } from './export.js';
 import { SAMPLE_REF, SAMPLE_TEXT } from './sample.js';
-import { loadLexicon, lexiconReady, entryFor, frequencyBand, passageVocabulary } from './lexicon.js';
-import { newCard, grade, dueCards, deckSummary, describeNext, BOX_INTERVALS, LAST_BOX } from './review.js';
+import { loadLexicon, lexiconReady, entryFor, shortGloss, frequencyBand, passageVocabulary } from './lexicon.js';
 
 const state = loadState();
 const ui = { open: null, tab: 'parse' }; // open: { passageId, verseIndex, wordIndex }
@@ -36,14 +35,13 @@ init();
 async function init() {
   bindRail();
   bindPwa();
-  bindVocab();
   applySettings();
   render();
   if (!state.passages.length) await loadSample();
   // Glosses arrive after the first paint; redraw once they do.
   const ok = await loadLexicon();
   if (ok) render();
-  else setVocabStatus('Glosses could not be loaded, so vocabulary help is unavailable.', 'error');
+  else setStatus('English glosses could not be loaded. Everything else still works.', 'error');
 }
 
 // ---------------------------------------------------------------------------
@@ -124,10 +122,10 @@ function bindRail() {
 
   $('#opt-hints').addEventListener('change', (e) => { state.settings.hints = e.target.checked; applySettings(); saveState(state); });
   $('#opt-strict').addEventListener('change', (e) => { state.settings.strict = e.target.checked; saveState(state); });
-  $('#opt-hide-gloss').addEventListener('change', (e) => {
-    state.settings.hideGloss = e.target.checked;
+  $('#opt-interlinear').addEventListener('change', (e) => {
+    state.settings.interlinear = e.target.checked;
+    applySettings();
     saveState(state);
-    render();
   });
 
   $$('[data-export]').forEach((btn) => btn.addEventListener('click', () => doExport(btn.dataset.export)));
@@ -140,7 +138,6 @@ function bindRail() {
       if (!data || data.version !== 1 || !Array.isArray(data.passages)) throw new Error('not a backup');
       Object.assign(state, emptyState(), data, {
         settings: { ...emptyState().settings, ...(data.settings ?? {}) },
-        vocab: data.vocab ?? {},
         openVocab: data.openVocab ?? {},
       });
       saveState(state, { immediate: true });
@@ -172,110 +169,12 @@ function bindRail() {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Vocabulary deck and review
-
-function bindVocab() {
-  $('#review-btn').addEventListener('click', openReview);
-  $('#review-close').addEventListener('click', () => $('#review').close());
-  $('#review-show').addEventListener('click', showReviewAnswer);
-  $('#review-again').addEventListener('click', () => answerReview(false));
-  $('#review-got').addEventListener('click', () => answerReview(true));
-  $('#review').addEventListener('keydown', (e) => {
-    const showing = !$('#review-show').hidden;
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); showing ? showReviewAnswer() : answerReview(true); }
-    else if (!showing && (e.key === '1' || e.key.toLowerCase() === 'n')) { e.preventDefault(); answerReview(false); }
-  });
-}
-
-function setVocabStatus(msg, kind = '') {
-  const el = $('#vocab-status');
-  el.textContent = msg;
-  el.className = `status ${kind}`;
-}
-
-/** Add a lemma to the review deck, or take it out again. */
-function toggleCard(lemma) {
-  if (state.vocab[lemma]) delete state.vocab[lemma];
-  else state.vocab[lemma] = newCard();
-  saveState(state);
-  renderScore();
-  return !!state.vocab[lemma];
-}
-
-function refreshStars(lemma) {
-  const inDeck = !!state.vocab[lemma];
-  $$(`[data-star="${CSS.escape(lemma)}"]`).forEach((btn) => {
-    btn.classList.toggle('on', inDeck);
-    btn.textContent = inDeck ? '★' : '☆';
-    btn.setAttribute('aria-pressed', String(inDeck));
-    btn.title = inDeck ? 'In your review deck' : 'Add to your review deck';
-  });
-}
-
-let session = null; // { queue: [{lemma, card}], index }
-
-function openReview() {
-  const queue = dueCards(state.vocab);
-  session = { queue, index: 0, done: 0, right: 0 };
-  $('#review').showModal();
-  renderReviewCard();
-}
-
-function renderReviewCard() {
-  const card = session.queue[session.index];
-  const summary = deckSummary(state.vocab);
-  const face = $('#review-face');
-  const back = $('#review-back');
-  const progress = $('#review-progress');
-  if (!card) {
-    const next = describeNext(summary.next);
-    face.innerHTML = summary.total
-      ? `<p class="review-empty">${session.done ? `Reviewed ${session.done} card${session.done === 1 ? '' : 's'}, ${session.right} recalled.` : 'Nothing is due right now.'}</p>
-         <p class="review-empty-sub">${next ? `The next card comes back ${esc(next)}.` : 'Your deck is empty.'}</p>`
-      : `<p class="review-empty">Your review deck is empty.</p>
-         <p class="review-empty-sub">Star a word in a passage's vocabulary list, or in a word panel, to start a deck.</p>`;
-    back.hidden = true;
-    progress.textContent = summary.total ? `${summary.total} word${summary.total === 1 ? '' : 's'} in the deck · ${summary.learned} learned` : '';
-    $('#review-show').hidden = true;
-    $('#review-answers').hidden = true;
-    return;
-  }
-  const entry = entryFor(card.lemma);
-  face.innerHTML = `<p class="review-word gk" lang="grc">${esc(entry?.headword ?? card.lemma)}</p>`;
-  back.innerHTML = `
-    <p class="review-gloss">${esc(entry?.gloss ?? 'No gloss in the lexicon.')}</p>
-    ${entry?.definition ? `<p class="review-def">${esc(entry.definition)}</p>` : ''}
-    <p class="review-meta">${entry ? `${entry.frequency}× in the New Testament` : ''} · box ${card.card.box + 1} of ${LAST_BOX + 1}</p>`;
-  back.hidden = true;
-  $('#review-show').hidden = false;
-  $('#review-answers').hidden = true;
-  progress.textContent = `${session.index + 1} of ${session.queue.length} due`;
-}
-
-function showReviewAnswer() {
-  $('#review-back').hidden = false;
-  $('#review-show').hidden = true;
-  $('#review-answers').hidden = false;
-}
-
-function answerReview(remembered) {
-  const card = session.queue[session.index];
-  if (!card) return;
-  state.vocab[card.lemma] = grade(state.vocab[card.lemma] ?? newCard(), remembered);
-  session.done += 1;
-  if (remembered) session.right += 1;
-  saveState(state);
-  renderScore();
-  session.index += 1;
-  renderReviewCard();
-}
-
 function applySettings() {
   $('#opt-hints').checked = !!state.settings.hints;
   $('#opt-strict').checked = !!state.settings.strict;
-  $('#opt-hide-gloss').checked = !!state.settings.hideGloss;
+  $('#opt-interlinear').checked = state.settings.interlinear !== false;
   document.body.classList.toggle('hints', !!state.settings.hints);
+  document.body.classList.toggle('interlinear', state.settings.interlinear !== false);
 }
 
 async function addReference(text) {
@@ -365,15 +264,6 @@ function renderScore() {
   $('#stat-accuracy').textContent = s.parsed ? `${Math.round((s.correct / s.parsed) * 100)}%` : '—';
   $('#stat-cells').textContent = String(s.cells);
   $('#meter-bar').style.width = s.parsed ? `${Math.round((s.correct / s.parsed) * 100)}%` : '0%';
-  const deck = deckSummary(state.vocab);
-  $('#stat-deck').textContent = String(deck.total);
-  const btn = $('#review-btn');
-  btn.textContent = deck.due ? `Review ${deck.due} word${deck.due === 1 ? '' : 's'}` : 'Review vocabulary';
-  btn.classList.toggle('btn-primary', deck.due > 0);
-  const next = describeNext(deck.next);
-  $('#deck-note').textContent = deck.total
-    ? (deck.due ? `${deck.due} due now.` : `Nothing due. Next ${next ?? 'soon'}.`)
-    : 'Star words while you read to build a deck.';
 }
 
 function renderPassage(p) {
@@ -397,18 +287,13 @@ function renderVocabList(p) {
   const rows = passageVocabulary(p);
   if (!rows.length) return '';
   const open = !!state.openVocab?.[p.id];
-  const unstarred = rows.filter((r) => !state.vocab[r.lemma]).length;
   return `
   <details class="vocab" data-vocab="${p.id}"${open ? ' open' : ''}>
-    <summary><span>Vocabulary</span> <span class="vocab-count">${rows.length} words, rarest first</span></summary>
+    <summary><span>Glossary</span> <span class="vocab-count">${rows.length} words, rarest first</span></summary>
     <div class="vocab-body">
-      <div class="vocab-actions">
-        <button class="btn btn-sm" type="button" data-add-deck="${p.id}"${unstarred ? '' : ' disabled'}>Add ${unstarred || 'all'} to review deck</button>
-        <span class="summary-line">Click a word to add it on its own.</span>
-      </div>
       <div class="para-wrap">
         <table class="vocab-table">
-          <thead><tr><th>Word</th><th>Meaning</th><th class="num">Here</th><th class="num">In the NT</th><th><span class="visually-hidden">In deck</span></th></tr></thead>
+          <thead><tr><th>Word</th><th>Meaning</th><th class="num">Here</th><th class="num">In the NT</th></tr></thead>
           <tbody>
             ${rows.map((r) => renderVocabRow(r)).join('')}
           </tbody>
@@ -420,13 +305,11 @@ function renderVocabList(p) {
 
 function renderVocabRow({ lemma, count, entry }) {
   const band = frequencyBand(entry?.frequency ?? 0);
-  const inDeck = !!state.vocab[lemma];
   return `<tr>
     <td class="gk" lang="grc">${esc(entry?.headword ?? lemma)}</td>
     <td>${entry?.gloss ? esc(entry.gloss) : '<span class="muted">no gloss in the lexicon</span>'}</td>
     <td class="num">${count}</td>
     <td class="num"><span class="freq ${band.key}" title="${esc(band.label)}">${entry?.frequency ?? '—'}</span></td>
-    <td class="num"><button class="star${inDeck ? ' on' : ''}" type="button" data-star="${esc(lemma)}" aria-pressed="${inDeck}" title="${inDeck ? 'In your review deck' : 'Add to your review deck'}">${inDeck ? '★' : '☆'}</button></td>
   </tr>`;
 }
 
@@ -447,15 +330,16 @@ function renderWord(p, v, w, wi) {
   const m = w.text.match(/^(.*?)([,.;·:!?)]*)$/);
   const core = m ? m[1] : w.text;
   const punct = m ? m[2] : '';
-  if (p.plain) return `<span class="w plain">${esc(core)}</span>${punct ? `<span class="punct">${esc(punct)}</span>` : ''}`;
+  if (p.plain) return `<span class="w-unit"><span class="w plain">${esc(core)}</span>${punct ? `<span class="punct">${esc(punct)}</span>` : ''}</span>`;
   const d = state.drills[wordKey(v, wi)];
   const cls = ['w'];
   if (d) cls.push(d.correct ? 'ok' : 'miss');
   if (ui.open && ui.open.passageId === p.id && ui.open.verseIndex === v.vi && ui.open.wordIndex === wi) cls.push('active');
-  const gloss = state.settings.hideGloss ? null : entryFor(w.lemma)?.gloss;
+  const entry = entryFor(w.lemma);
   const parse = d ? `${w.lemma} — ${describeParse(w)}` : `${w.lemma || ''} ${posLabel(w)}`.trim();
-  const title = gloss ? `${parse} · ${gloss}` : parse;
-  return `<span class="${cls.join(' ')}" role="button" tabindex="0" data-word="${wi}" data-pos="${esc(w.pos)}" title="${esc(title)}">${esc(core)}</span>${punct ? `<span class="punct">${esc(punct)}</span>` : ''}`;
+  const title = entry?.gloss ? `${parse} · ${entry.gloss}` : parse;
+  const under = shortGloss(w.lemma);
+  return `<span class="w-unit"><span class="w-line"><span class="${cls.join(' ')}" role="button" tabindex="0" data-word="${wi}" data-pos="${esc(w.pos)}" title="${esc(title)}">${esc(core)}</span>${punct ? `<span class="punct">${esc(punct)}</span>` : ''}</span><span class="wg">${under ? esc(under) : ''}</span></span>`;
 }
 
 function autosize(ta) {
@@ -476,45 +360,11 @@ els.passages.addEventListener('click', (e) => {
     }
     return;
   }
-  const star = e.target.closest('[data-star]');
-  if (star) {
-    toggleCard(star.dataset.star);
-    refreshStars(star.dataset.star);
-    const list = star.closest('[data-vocab]');
-    if (list) refreshDeckButton(list.dataset.vocab);
-    return;
-  }
-  const addDeck = e.target.closest('[data-add-deck]');
-  if (addDeck) {
-    const passage = state.passages.find((x) => x.id === addDeck.dataset.addDeck);
-    if (!passage) return;
-    let added = 0;
-    for (const { lemma } of passageVocabulary(passage)) {
-      if (state.vocab[lemma]) continue;
-      state.vocab[lemma] = newCard();
-      added += 1;
-    }
-    saveState(state);
-    renderScore();
-    passageVocabulary(passage).forEach(({ lemma }) => refreshStars(lemma));
-    refreshDeckButton(passage.id);
-    setVocabStatus(`Added ${added} word${added === 1 ? '' : 's'} to your review deck.`);
-    return;
-  }
   const word = e.target.closest('.w[data-word]');
   if (word && !e.target.closest('.drill')) {
     openDrillFrom(word);
   }
 });
-
-function refreshDeckButton(passageId) {
-  const passage = state.passages.find((x) => x.id === passageId);
-  const btn = $(`[data-add-deck="${passageId}"]`);
-  if (!passage || !btn) return;
-  const unstarred = passageVocabulary(passage).filter((r) => !state.vocab[r.lemma]).length;
-  btn.disabled = unstarred === 0;
-  btn.textContent = `Add ${unstarred || 'all'} to review deck`;
-}
 
 // Remember which vocabulary lists are open across re-renders.
 els.passages.addEventListener('toggle', (e) => {
@@ -616,10 +466,6 @@ function renderDrill(panel, ctx) {
     <div class="tab-body" data-tab-body></div>`;
 
   panel.querySelector('[data-close]').addEventListener('click', closeDrill);
-  panel.querySelector('[data-reveal-gloss]')?.addEventListener('click', () => {
-    panel.querySelector('[data-gloss-hidden]').hidden = false;
-    panel.querySelector('[data-reveal-gloss]').remove();
-  });
   $$('[data-tab]', panel).forEach((b) => b.addEventListener('click', () => { ui.tab = b.dataset.tab; renderDrill(panel, ctx); }));
 
   const body = panel.querySelector('[data-tab-body]');
@@ -639,23 +485,14 @@ function renderWordVocab(word) {
       : '';
   }
   const band = frequencyBand(entry.frequency);
-  const inDeck = !!state.vocab[word.lemma];
-  const body = `
+  return `<div class="word-vocab"><div class="word-vocab-inner">
     <div class="word-vocab-main">
       <span class="gk headword" lang="grc">${esc(entry.headword)}</span>
       <span class="gloss">${esc(entry.gloss ?? '—')}</span>
     </div>
-    <div class="word-vocab-side">
-      <span class="freq ${band.key}" title="occurrences in the New Testament">${entry.frequency}× · ${esc(band.label)}</span>
-      <button class="star${inDeck ? ' on' : ''}" type="button" data-star="${esc(word.lemma)}" aria-pressed="${inDeck}" title="${inDeck ? 'In your review deck' : 'Add to your review deck'}">${inDeck ? '★' : '☆'}</button>
-    </div>`;
-  if (state.settings.hideGloss) {
-    return `<div class="word-vocab">
-      <button class="btn btn-sm" type="button" data-reveal-gloss>Show meaning</button>
-      <div class="word-vocab-inner" data-gloss-hidden hidden>${body}</div>
-    </div>`;
-  }
-  return `<div class="word-vocab"><div class="word-vocab-inner">${body}</div></div>`;
+    <span class="freq ${band.key}" title="occurrences in the New Testament">${entry.frequency}× · ${esc(band.label)}</span>
+    ${entry.definition ? `<p class="word-vocab-def">${esc(entry.definition)}</p>` : ''}
+  </div></div>`;
 }
 
 function renderInfoTab(body, { word, key }) {

@@ -58,6 +58,29 @@ export function glossFor(lemma) {
 }
 
 /**
+ * The first sense only, short enough to sit under a word while reading.
+ * "the world, universe" → "the world"; "I destroy, lose, am perishing" → "I destroy".
+ */
+export function shortGloss(lemma) {
+  const gloss = glossFor(lemma);
+  if (!gloss) return null;
+  const senses = gloss.split(/[,;]/)
+    .map((s) => s.replace(/^\((?:[a-z]|[ivx]+)\)\s*/i, '').trim())
+    .filter(Boolean);
+  if (!senses.length) return null;
+  // Keep adding senses while they still fit: "I offer, give" reads better
+  // than "I offer" alone, and the first sense is not always the clearest.
+  let out = senses[0];
+  for (const sense of senses.slice(1)) {
+    const next = `${out}, ${sense}`;
+    if (next.length > 20) break;
+    out = next;
+  }
+  if (out.length > 24) out = `${out.slice(0, 22).trimEnd()}…`;
+  return out;
+}
+
+/**
  * How common a lemma is, as a band a learner can act on. The thresholds follow
  * the usual vocabulary-list cutoffs: words down to 50 occurrences are learned
  * first, 10 and above is standard second-year vocabulary, below that is rare.

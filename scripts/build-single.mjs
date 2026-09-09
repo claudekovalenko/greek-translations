@@ -20,7 +20,7 @@ const embed = process.argv.includes('--embed');
 const artifact = process.argv.includes('--artifact');
 const read = (p) => readFile(new URL(p, root), 'utf8');
 
-const ORDER = ['books', 'greek', 'morphgnt', 'refs', 'parsing', 'paradigm', 'lexicon', 'review', 'datasource', 'state', 'export', 'sample', 'main'];
+const ORDER = ['books', 'greek', 'morphgnt', 'refs', 'parsing', 'paradigm', 'lexicon', 'datasource', 'state', 'export', 'sample', 'main'];
 
 function transform(name, src) {
   // Modules are concatenated into one scope, so an aliased import would leave

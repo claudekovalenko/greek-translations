@@ -26,7 +26,6 @@ const SHELL = [
   './js/export.js',
   './js/sample.js',
   './js/lexicon.js',
-  './js/review.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
