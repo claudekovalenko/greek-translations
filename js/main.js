@@ -1,7 +1,7 @@
 // Anagnosis — application UI.
 
 import { BOOK_BY_ID } from './books.js';
-import { parseReference } from './refs.js';
+import { parseReference, formatReference } from './refs.js';
 import { loadBook, registerPartial, loadedWords } from './datasource.js';
 import { parseMorphGNT, groupVerses, selectVerses } from './morphgnt.js';
 import { FIELDS, decodeCode, drillFields, checkParse, describeParse, posLabel, isInflected, MP_IDENTICAL_TENSES } from './parsing.js';
@@ -105,6 +105,12 @@ function bindRail() {
     await addReference(text);
   });
 
+  $('#ref-remove').addEventListener('click', () => {
+    const text = els.refInput.value.trim();
+    if (!text) { setStatus('Type the reference you want to remove.', 'error'); return; }
+    removeReference(text);
+  });
+
   $('#paste-btn').addEventListener('click', () => {
     const text = $('#paste-text').value.trim();
     if (!text) { setStatus('Paste some Greek text first.', 'error'); return; }
@@ -200,6 +206,66 @@ async function addReference(text) {
   } finally {
     els.refForm.querySelector('button').disabled = false;
   }
+}
+
+/** Take the verses of a reference back out, wherever they sit. */
+function removeReference(text) {
+  let ref;
+  try {
+    ref = parseReference(text);
+  } catch (err) {
+    setStatus(err.message, 'error');
+    return;
+  }
+  const matches = (v) => {
+    if (v.b !== ref.book.id) return false;
+    if (v.c < ref.chapter || v.c > ref.endChapter) return false;
+    if (v.c === ref.chapter && ref.verse != null && v.v < ref.verse) return false;
+    if (v.c === ref.endChapter && ref.endVerse != null && v.v > ref.endVerse) return false;
+    return true;
+  };
+  const doomed = state.passages.flatMap((p) => p.verses.filter(matches));
+  if (!doomed.length) {
+    setStatus(`${ref.label} is not among your passages.`, 'error');
+    return;
+  }
+  const written = doomed.filter((v) => v.translation?.trim() || v.note?.trim()).length;
+  if (written && !confirm(`Remove ${doomed.length} verse${doomed.length === 1 ? '' : 's'}? ${written} ${written === 1 ? 'has a translation that' : 'have translations that'} will be deleted.`)) return;
+
+  for (const passage of state.passages) {
+    const keep = [];
+    for (const verse of passage.verses) {
+      if (!matches(verse)) { keep.push(verse); continue; }
+      verse.words.forEach((_, wi) => {
+        delete state.drills[wordKey(verse, wi)];
+        delete state.revealed[wordKey(verse, wi)];
+      });
+    }
+    if (keep.length !== passage.verses.length) {
+      passage.verses = keep;
+      relabel(passage);
+    }
+  }
+  const emptied = state.passages.filter((p) => !p.verses.length);
+  emptied.forEach((p) => delete state.openVocab[p.id]);
+  state.passages = state.passages.filter((p) => p.verses.length);
+  ui.open = null;
+  els.refInput.value = '';
+  saveState(state);
+  render();
+  setStatus(`Removed ${doomed.length} verse${doomed.length === 1 ? '' : 's'} (${ref.label}).`);
+}
+
+/** Keep a passage's heading honest after verses are taken out of it. */
+function relabel(passage) {
+  if (passage.plain || !passage.verses.length) return;
+  const book = BOOK_BY_ID.get(passage.bookId);
+  if (!book) return;
+  const first = passage.verses[0];
+  const last = passage.verses[passage.verses.length - 1];
+  passage.label = formatReference({
+    book, chapter: first.c, verse: first.v, endChapter: last.c, endVerse: last.v,
+  });
 }
 
 function addPassage({ label, bookId, verses, plain = false, sample = false }) {
@@ -379,6 +445,7 @@ els.passages.addEventListener('click', (e) => {
       delete state.revealed[wordKey(verse, wi)];
     });
     passage.verses.splice(verseIndex, 1);
+    relabel(passage);
     if (!passage.verses.length) {
       state.passages = state.passages.filter((x) => x !== passage);
       delete state.openVocab[passage.id];

@@ -207,6 +207,10 @@ button, input, select, textarea {
   gap: 0.5rem;
 }
 
+#ref-form input[type="text"] { width: 100%; }
+.ref-buttons { margin-top: 0.5rem; }
+.ref-buttons .btn { flex: 1; justify-content: center; }
+
 .field-row input[type="text"] {
   flex: 1;
   min-width: 0;

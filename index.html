@@ -33,12 +33,15 @@
 <main class="layout">
   <aside class="rail">
     <section class="panel">
-      <h2>Add a passage</h2>
-      <form id="ref-form" class="field-row" autocomplete="off">
+      <h2>Add or remove verses</h2>
+      <form id="ref-form" autocomplete="off">
         <input type="text" id="ref-input" placeholder="e.g. John 3:16-18" aria-label="Scripture reference" required>
-        <button class="btn btn-primary" type="submit">Add</button>
+        <div class="field-row ref-buttons">
+          <button class="btn btn-primary" type="submit">Add</button>
+          <button class="btn" type="button" id="ref-remove">Remove</button>
+        </div>
       </form>
-      <p class="hint">A reference like <span class="mono">Rom 8:1-4</span>, <span class="mono">1 Cor 13</span> or <span class="mono">Mk 1:1-2:5</span>. The Greek text and its parsing are loaded from the SBLGNT.</p>
+      <p class="hint">A reference like <span class="mono">Rom 8:1-4</span>, <span class="mono">1 Cor 13</span> or <span class="mono">Mk 1:1-2:5</span>. <b>Remove</b> takes the same reference back out, down to a single verse.</p>
       <p class="status" id="status" role="status" aria-live="polite"></p>
       <details class="paste">
         <summary>Or paste Greek text yourself</summary>
@@ -102,7 +105,7 @@
 <dialog id="help">
   <h2>How it works</h2>
   <ol>
-    <li><b>Add a passage</b> by reference. Each verse appears in Greek with a translation box under it.</li>
+    <li><b>Add a passage</b> by reference. Each verse appears in Greek with a translation box under it. The same box takes verses back out: type <span class="mono">John 3:17</span> and press <b>Remove</b>, or use the ✕ beside a verse number.</li>
     <li><b>Write your translation</b> in the box. It saves as you type. The ✕ beside a verse number removes that verse on its own.</li>
     <li><b>Click any word</b> for its dictionary entry and panel below the verse. Identify its parsing (person, tense, voice, mood, number, or case, number, gender), then <i>Check</i>. Wrong fields show the right answer.</li>
     <li><b>Verbs</b> also offer <i>Conjugate</i>: pick a tense, voice and mood and fill in the six forms. Nouns, adjectives, pronouns and articles offer <i>Decline</i>. Forms attested in the New Testament are marked <span class="src att">sblgnt</span>; regular paradigms the app generates are marked <span class="src">generated</span>. Where neither exists, the cell is left for you to check against your grammar.</li>
