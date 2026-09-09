@@ -17,7 +17,9 @@ It is a Progressive Web App: install it from the browser menu (or the *Install a
    - **Conjugate** (verbs): pick a tense, voice and mood and fill in the six forms. The answer key uses forms attested in the New Testament first (marked `sblgnt`), then regular paradigms the app generates (marked `generated`). Where neither exists the cell is left for you to check by hand.
    - **Decline** (nouns, adjectives, pronouns, articles): the same, on an eight-cell case/number table.
    - **Done** collapses the panel and underlines the word: green if you had it right, red if you were corrected.
-4. **Export** your Greek, translations and parsing notes as Markdown, plain text, or print to PDF. A JSON backup restores the whole session on another machine.
+4. **Learn the vocabulary.** Every word panel shows the dictionary headword, its meaning and how often the word occurs in the New Testament, and hovering a word shows its gloss. Under each passage, a **Vocabulary** list gives every distinct word rarest-first, which is roughly the order in which you will need help. Star a word to add it to your review deck.
+5. **Review** with the *Review vocabulary* button. Cards are scheduled with Leitner boxes: recall one and it comes back in 1, 3, 7, 16 then 35 days; miss it and it returns tomorrow.
+6. **Export** your Greek, translations and parsing notes as Markdown, plain text, or print to PDF. A JSON backup restores the whole session on another machine. The Markdown export includes a vocabulary table per passage and your review deck.
 
 You can also paste Greek text yourself (one verse per line). Pasted text has no parsing data, so only the translation boxes are available for it.
 
@@ -46,7 +48,10 @@ npm run build:embed     # dist/anagnosis-offline.html — one file with the whol
 
 ```sh
 npm test                # unit tests (node:test) for reference parsing, code decoding,
-                        # the paradigm generator, and MorphGNT parsing
+                        # the paradigm generator, MorphGNT parsing, the lexicon
+                        # and the review scheduler
+npm run build-lexicon   # rebuild data/lexicon.json from the Dodson lexicon
+npm run make-icons      # re-render the PWA icons from icons/*.svg
 ```
 
 Layout:
@@ -61,6 +66,8 @@ Layout:
 | `js/paradigm.js` | generation of regular verb and noun paradigms (recessive/persistent accent, contraction, augment, compounds) |
 | `js/greek.js` | Unicode-aware Greek utilities: normalization, comparison, syllables, accents |
 | `js/datasource.js` | loading books from embedded data, IndexedDB cache, local folder or GitHub |
+| `js/lexicon.js` | glosses, dictionary headwords and NT frequencies |
+| `js/review.js` | Leitner-box scheduling for the vocabulary deck |
 | `js/state.js`, `js/export.js` | persistence and exporters |
 | `scripts/` | data download and single-file build |
 
@@ -72,5 +79,6 @@ The generator covers regular -ω verbs (including contract verbs and preposition
 
 - Greek text: [SBL Greek New Testament](https://sblgnt.com), © 2010 Society of Biblical Literature and Logos Bible Software, used under the SBLGNT End User License Agreement.
 - Morphological parsing and lemmas: [MorphGNT](https://github.com/morphgnt/sblgnt), James K. Tauber (ed.), CC BY-SA 3.0.
+- Glosses: [Jeffrey Dodson's Greek Lexicon](https://github.com/biblicalhumanities/Dodson-Greek-Lexicon), public domain. `data/lexicon.json` is built from it by `scripts/build-lexicon.mjs`, which converts the Beta Code headwords to Unicode, matches them to MorphGNT lemmas and adds a frequency counted in the SBLGNT. Glosses cover 99.6% of word occurrences; where a lemma has none, the app says so rather than guessing.
 - Fonts (loaded from Google Fonts): Gentium Plus, Alegreya Sans, IBM Plex Mono.
 - Application code: MIT.

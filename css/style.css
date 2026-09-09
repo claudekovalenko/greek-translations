@@ -83,6 +83,10 @@
 
 * { box-sizing: border-box; }
 
+/* Several components below set `display`, which would otherwise beat the
+   browser's own rule for the hidden attribute. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   background: var(--bg);
@@ -708,6 +712,9 @@ details.paste .field-row { margin-top: 0.5rem; }
 }
 
 /* update toast */
+.toast-dismiss { color: var(--bg); }
+.toast-dismiss:hover { background: rgba(255,255,255,0.12); }
+
 .toast {
   position: fixed;
   left: 50%;
@@ -747,6 +754,144 @@ dialog::backdrop { background: rgba(10, 14, 20, 0.45); }
 dialog h2 { margin-top: 0; }
 dialog ol { padding-left: 1.2rem; }
 dialog li { margin: 0.35rem 0; }
+
+
+/* ---------- vocabulary ---------- */
+
+.muted { color: var(--muted); }
+
+.deck-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  justify-content: space-between;
+}
+.stat.inline { flex-direction: row; align-items: baseline; gap: 0.35rem; }
+.stat.inline b { font-size: 1.1rem; }
+
+.vocab {
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.vocab > summary {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  cursor: pointer;
+  padding: 0.7rem 1.4rem;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.vocab > summary::marker { color: var(--muted); }
+.vocab-count { font-weight: 400; color: var(--muted); font-size: 0.9rem; }
+.vocab-body { padding: 0 1.4rem 1.2rem; display: flex; flex-direction: column; gap: 0.7rem; }
+.vocab-actions { display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap; }
+.vocab-loading { padding: 0.7rem 1.4rem; color: var(--muted); border-top: 1px solid var(--line); font-size: 0.9rem; }
+
+.vocab-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.vocab-table th, .vocab-table td {
+  padding: 0.4rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: baseline;
+}
+.vocab-table th {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.vocab-table tr:last-child td { border-bottom: 0; }
+.vocab-table .gk { font-size: 1.15rem; white-space: nowrap; }
+.vocab-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.freq {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+.freq.core { background: var(--accent-soft); color: var(--accent); }
+.freq.common { background: var(--ok-soft); color: var(--ok); }
+.freq.known { background: var(--gold-soft); color: var(--gold); }
+.freq.rare, .freq.veryrare { background: var(--bad-soft); color: var(--bad); }
+
+.star {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 0.15rem 0.25rem;
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+.star:hover { background: var(--surface-3); color: var(--gold); }
+.star.on { color: var(--gold); }
+
+/* word panel vocabulary block */
+.word-vocab {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.6rem 0.8rem;
+}
+.word-vocab-inner {
+  display: flex;
+  gap: 0.8rem;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.word-vocab-main { display: flex; gap: 0.7rem; align-items: baseline; flex-wrap: wrap; min-width: 0; }
+.word-vocab .headword { font-size: 1.2rem; font-weight: 700; }
+.word-vocab .gloss { color: var(--ink); }
+.word-vocab-side { display: flex; gap: 0.5rem; align-items: center; }
+
+/* review dialog */
+#review { width: min(30rem, 92vw); }
+.review-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.review-head h2 { margin: 0; font-size: 1.1rem; }
+.review-progress { color: var(--muted); font-size: 0.85rem; margin: 0.2rem 0 0; font-variant-numeric: tabular-nums; }
+.review-card {
+  margin: 1rem 0;
+  padding: 1.4rem 1rem;
+  min-height: 9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.7rem;
+  text-align: center;
+}
+.review-word { font-size: 2rem; font-weight: 700; margin: 0; line-height: 1.25; }
+.review-gloss { font-size: 1.15rem; margin: 0; }
+.review-def { color: var(--ink-2); font-size: 0.92rem; margin: 0; }
+.review-meta { color: var(--muted); font-size: 0.82rem; margin: 0; }
+.review-empty { margin: 0; font-weight: 700; }
+.review-empty-sub { margin: 0; color: var(--muted); font-size: 0.92rem; }
+.review-controls { display: flex; justify-content: center; }
+.review-answers { display: flex; gap: 0.6rem; }
+.review-controls .btn { min-width: 8rem; justify-content: center; }
+
+@media print {
+  .vocab-actions, .star { display: none !important; }
+  .vocab { break-inside: avoid; }
+  .vocab > summary { list-style: none; }
+}
 
 /* ---------- print ---------- */
 

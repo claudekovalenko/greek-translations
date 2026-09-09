@@ -20,9 +20,15 @@ const embed = process.argv.includes('--embed');
 const artifact = process.argv.includes('--artifact');
 const read = (p) => readFile(new URL(p, root), 'utf8');
 
-const ORDER = ['books', 'greek', 'morphgnt', 'refs', 'parsing', 'paradigm', 'datasource', 'state', 'export', 'sample', 'main'];
+const ORDER = ['books', 'greek', 'morphgnt', 'refs', 'parsing', 'paradigm', 'lexicon', 'review', 'datasource', 'state', 'export', 'sample', 'main'];
 
 function transform(name, src) {
+  // Modules are concatenated into one scope, so an aliased import would leave
+  // the alias undefined. Fail loudly rather than ship a broken bundle.
+  const aliased = src.match(/^import\s*\{[^}]*\bas\b[^}]*\}\s*from\s+'[^']+';/m);
+  if (aliased) {
+    throw new Error(`${name}.js uses an aliased import, which this bundler cannot rewrite:\n  ${aliased[0]}\nRename the export instead.`);
+  }
   // Drop imports (everything shares one scope after concatenation).
   src = src.replace(/^import\s[^;]*?from\s+'[^']+';\s*$/gm, '');
   // export function/const/let/class → plain declarations
@@ -41,6 +47,13 @@ const css = await read('css/style.css');
 html = html.replace(/<link rel="stylesheet" href="css\/style.css">/, () => `<style>\n${css}\n</style>`);
 
 let dataScript = '';
+// The lexicon is small enough to embed in every single-file build.
+try {
+  const lexicon = await readFile(new URL('data/lexicon.json', root), 'utf8');
+  dataScript += `<script>globalThis.__ANAGNOSIS_LEXICON = ${lexicon.replace(/<\/script/gi, '<\\/script')};</script>\n`;
+} catch {
+  console.warn('data/lexicon.json is missing: the built file will have no glosses. Run `npm run build-lexicon`.');
+}
 if (embed) {
   const dir = new URL('data/morphgnt/', root);
   if (!existsSync(dir)) {
@@ -55,7 +68,7 @@ if (embed) {
     data[book.id] = toCompact(words);
   }
   const json = JSON.stringify(data).replace(/<\/script/gi, '<\\/script');
-  dataScript = `<script>globalThis.__ANAGNOSIS_DATA = ${json};</script>\n`;
+  dataScript += `<script>globalThis.__ANAGNOSIS_DATA = ${json};</script>\n`;
   console.log(`Embedded ${Object.keys(data).length} books (${(json.length / 1e6).toFixed(1)} MB).`);
 }
 

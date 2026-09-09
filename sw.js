@@ -6,8 +6,8 @@
 //  - Google Fonts and MorphGNT data files: cache first (they never change for
 //    a given URL), so the Greek text you have read stays readable offline.
 
-const SHELL_CACHE = 'anagnosis-shell-v1';
-const ASSET_CACHE = 'anagnosis-assets-v1';
+const SHELL_CACHE = 'anagnosis-shell-v2';
+const ASSET_CACHE = 'anagnosis-assets-v2';
 
 const SHELL = [
   './',
@@ -25,15 +25,22 @@ const SHELL = [
   './js/state.js',
   './js/export.js',
   './js/sample.js',
+  './js/lexicon.js',
+  './js/review.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
 ];
 
+// Cached separately: large, rarely changing, and wanted offline.
+const PRECACHED_ASSETS = ['./data/lexicon.json'];
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()),
-  );
+  event.waitUntil(Promise.all([
+    caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL)),
+    // Best effort: a missing lexicon must not fail the whole install.
+    caches.open(ASSET_CACHE).then((cache) => cache.addAll(PRECACHED_ASSETS)).catch(() => {}),
+  ]).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
@@ -48,7 +55,7 @@ const isAsset = (url) =>
   url.hostname === 'fonts.googleapis.com' ||
   url.hostname === 'fonts.gstatic.com' ||
   (url.hostname === 'raw.githubusercontent.com' && url.pathname.includes('/morphgnt/')) ||
-  (url.origin === self.location.origin && url.pathname.includes('/data/morphgnt/'));
+  (url.origin === self.location.origin && url.pathname.includes('/data/'));
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;

@@ -8,7 +8,9 @@ export function emptyState() {
     passages: [],
     drills: {},      // wordKey → { correct, attempts, given, at }
     paradigms: {},   // "lemma|TVM" → { correct, total, at }
-    settings: { strict: false, hints: true },
+    vocab: {},       // lemma → Leitner card { box, due, seen, right, added }
+    openVocab: {},   // passage id → is its vocabulary list open
+    settings: { strict: false, hints: true, hideGloss: false },
   };
 }
 
