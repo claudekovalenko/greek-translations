@@ -11,6 +11,7 @@ export function emptyState() {
     openVocab: {},   // passage id → is its glossary open
     revealed: {},    // word key → its meaning has been asked for
     collapsed: {},   // verse key → the verse is folded away
+    foldedPassages: {}, // passage id → the whole passage is folded away
     verseGloss: {},  // verse key → show the English under every word of it
     settings: { strict: false, hints: true, interlinear: false },
   };

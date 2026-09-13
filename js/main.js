@@ -13,7 +13,11 @@ import { SAMPLE_REF, SAMPLE_TEXT } from './sample.js';
 import { loadLexicon, lexiconReady, entryFor, shortGloss, frequencyBand, passageVocabulary } from './lexicon.js';
 
 const state = loadState();
-const ui = { open: null, tab: 'parse' }; // open: { passageId, verseIndex, wordIndex }
+const ui = {
+  open: null,                       // { passageId, verseIndex, wordIndex }
+  tab: 'parse',
+  filter: { text: '', tags: [] },   // narrowing the list of passages; not saved
+};
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -103,6 +107,29 @@ function bindRail() {
     const text = els.refInput.value.trim();
     if (!text) return;
     await addReference(text);
+  });
+
+  $('#filter-text').addEventListener('input', (e) => {
+    ui.filter.text = e.target.value;
+    render();
+  });
+  $('#fold-passages').addEventListener('click', () => {
+    const shown = visiblePassages();
+    const fold = !allPassagesFolded();
+    shown.forEach((p) => {
+      if (fold) state.foldedPassages[p.id] = true;
+      else delete state.foldedPassages[p.id];
+    });
+    if (fold) ui.open = null;
+    saveState(state);
+    render();
+  });
+  $('#filter-tags').addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-toggle-tag]');
+    if (chip) toggleFilterTag(chip.dataset.toggleTag);
+  });
+  $('#filter-count').addEventListener('click', (e) => {
+    if (e.target.closest('[data-clear-filter]')) clearFilter();
   });
 
   $('#ref-remove').addEventListener('click', () => {
@@ -248,7 +275,7 @@ function removeReference(text) {
     }
   }
   const emptied = state.passages.filter((p) => !p.verses.length);
-  emptied.forEach((p) => delete state.openVocab[p.id]);
+  emptied.forEach((p) => { delete state.openVocab[p.id]; delete state.foldedPassages[p.id]; });
   state.passages = state.passages.filter((p) => p.verses.length);
   ui.open = null;
   els.refInput.value = '';
@@ -281,11 +308,13 @@ function addPassage({ label, bookId, verses, plain = false, sample = false }) {
     bookId,
     plain,
     sample,
+    tags: [],
     verses: verses.map((v) => ({ b: v.b, c: v.c, v: v.v, words: v.words.map(stripWord), translation: '', note: '' })),
   };
   state.passages.push(passage);
   saveState(state);
-  render();
+  if (!visiblePassages().some((p) => p.id === passage.id)) clearFilter();
+  else render();
   const el = $(`[data-passage="${passage.id}"]`);
   if (el && state.passages.length > 1) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -320,13 +349,62 @@ async function doExport(kind) {
 
 function render() {
   renderScore();
+  renderFilters();
   if (!state.passages.length) {
     els.passages.innerHTML = `<div class="empty"><span class="gk">Ἐν ἀρχῇ ἦν ὁ λόγος</span>Add a passage from the panel to begin.</div>`;
     return;
   }
-  els.passages.innerHTML = state.passages.map(renderPassage).join('');
+  const shown = visiblePassages();
+  if (!shown.length) {
+    els.passages.innerHTML = `<div class="empty">Nothing matches this filter.<br><button class="btn btn-sm" type="button" data-clear-filter>Show all ${state.passages.length} passages</button></div>`;
+    return;
+  }
+  els.passages.innerHTML = shown.map(renderPassage).join('');
   $$('.translation', els.passages).forEach(autosize);
-  if (ui.open) mountDrill();
+  if (ui.open && shown.some((p) => p.id === ui.open.passageId)) mountDrill();
+}
+
+/** Passages left after the search box and the selected tags. */
+function visiblePassages() {
+  const text = ui.filter.text.trim().toLowerCase();
+  return state.passages.filter((p) => {
+    if (ui.filter.tags.length && !ui.filter.tags.every((t) => (p.tags ?? []).includes(t))) return false;
+    if (!text) return true;
+    const haystack = [
+      p.label,
+      BOOK_BY_ID.get(p.bookId)?.name ?? '',
+      ...(p.tags ?? []),
+      ...p.verses.map((v) => v.translation ?? ''),
+    ].join(' ').toLowerCase();
+    return haystack.includes(text);
+  });
+}
+
+/** Every tag in use, with how many passages carry it. */
+function tagCounts() {
+  const counts = new Map();
+  for (const p of state.passages) for (const t of p.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+function renderFilters() {
+  const tags = tagCounts();
+  const shown = visiblePassages().length;
+  const total = state.passages.length;
+  const filtering = !!ui.filter.text.trim() || ui.filter.tags.length > 0;
+  $('#filter-tags').innerHTML = tags.length
+    ? tags.map(([tag, n]) => `<button class="chip-filter${ui.filter.tags.includes(tag) ? ' on' : ''}" type="button" data-toggle-tag="${esc(tag)}" aria-pressed="${ui.filter.tags.includes(tag)}">${esc(tag)} <span class="n">${n}</span></button>`).join('')
+    : '<span class="hint">Tag a passage to group it here.</span>';
+  $('#filter-count').innerHTML = total
+    ? `${filtering ? `${shown} of ${total}` : `${total}`} passage${total === 1 ? '' : 's'}${filtering ? ' <button class="btn btn-quiet btn-sm" type="button" data-clear-filter>Clear</button>' : ''}`
+    : '';
+  $('#fold-passages').textContent = allPassagesFolded() ? 'Open all' : 'Fold all';
+  $('#fold-passages').disabled = !total;
+}
+
+function allPassagesFolded() {
+  const shown = visiblePassages();
+  return shown.length > 0 && shown.every((p) => state.foldedPassages[p.id]);
 }
 
 function renderScore() {
@@ -340,20 +418,40 @@ function renderScore() {
 
 function renderPassage(p) {
   const book = BOOK_BY_ID.get(p.bookId);
-  const meta = p.plain ? 'pasted text · no parsing data' : `${book?.name ?? ''} · SBLGNT${p.sample ? ' · sample' : ''}`;
+  const meta = p.plain ? 'pasted text' : `${book?.name ?? ''}${p.sample ? ' · sample' : ''}`;
+  const folded = !!state.foldedPassages[p.id];
+  const done = p.verses.filter((v) => v.translation?.trim()).length;
   return `
-  <article class="passage" data-passage="${p.id}">
+  <article class="passage${folded ? ' folded' : ''}" data-passage="${p.id}">
     <header class="passage-head">
-      <h2 class="passage-title">${esc(p.label)}<span class="passage-meta">${esc(meta)}</span></h2>
+      <div class="passage-head-main">
+        <button class="passage-toggle" type="button" data-toggle-passage="${p.id}" aria-expanded="${!folded}" title="${folded ? 'Open' : 'Fold away'} ${esc(p.label)}">
+          <span class="caret" aria-hidden="true"></span>
+          <span class="passage-title">${esc(p.label)}</span>
+        </button>
+        <span class="passage-meta">${esc(meta)}</span>
+        <span class="passage-progress" title="verses translated">${done}/${p.verses.length}</span>
+        ${renderTags(p)}
+      </div>
       <span class="passage-tools">
-        <button class="btn btn-quiet btn-sm" type="button" data-fold-all="${p.id}">${allFolded(p) ? 'Open all' : 'Fold all'}</button>
+        <button class="btn btn-quiet btn-sm" type="button" data-fold-all="${p.id}">${allFolded(p) ? 'Open verses' : 'Fold verses'}</button>
         <button class="btn btn-quiet btn-sm" type="button" data-clear-glosses="${p.id}">Hide meanings</button>
         <button class="btn btn-quiet btn-sm" type="button" data-remove="${p.id}" aria-label="Remove ${esc(p.label)}">Remove</button>
       </span>
     </header>
-    ${p.verses.map((v, vi) => renderVerse(p, v, vi)).join('')}
-    ${renderVocabList(p)}
+    <div class="passage-body">
+      ${p.verses.map((v, vi) => renderVerse(p, v, vi)).join('')}
+      ${renderVocabList(p)}
+    </div>
   </article>`;
+}
+
+function renderTags(p) {
+  const tags = p.tags ?? [];
+  return `<span class="tags">
+    ${tags.map((t) => `<span class="tag"><button class="tag-name" type="button" data-toggle-tag="${esc(t)}" title="Filter by ${esc(t)}">${esc(t)}</button><button class="tag-del" type="button" data-remove-tag="${esc(t)}" data-tag-passage="${p.id}" aria-label="Remove the tag ${esc(t)} from ${esc(p.label)}">×</button></span>`).join('')}
+    <button class="tag-add" type="button" data-add-tag="${p.id}" title="Add a tag to ${esc(p.label)}">+ tag</button>
+  </span>`;
 }
 
 /** The distinct vocabulary of a passage, rarest word first. */
@@ -450,10 +548,44 @@ els.passages.addEventListener('click', (e) => {
     const p = state.passages.find((x) => x.id === remove.dataset.remove);
     if (p && confirm(`Remove ${p.label}? Your translations for it will be deleted.`)) {
       state.passages = state.passages.filter((x) => x !== p);
+      delete state.foldedPassages[p.id];
       if (ui.open?.passageId === p.id) ui.open = null;
       saveState(state);
       render();
     }
+    return;
+  }
+  if (e.target.closest('[data-clear-filter]')) { clearFilter(); return; }
+  const togglePassage = e.target.closest('[data-toggle-passage]');
+  if (togglePassage) {
+    const id = togglePassage.dataset.togglePassage;
+    if (state.foldedPassages[id]) delete state.foldedPassages[id];
+    else {
+      state.foldedPassages[id] = true;
+      if (ui.open?.passageId === id) closeDrill();
+    }
+    saveState(state);
+    render();
+    return;
+  }
+  const toggleTag = e.target.closest('[data-toggle-tag]');
+  if (toggleTag) {
+    toggleFilterTag(toggleTag.dataset.toggleTag);
+    return;
+  }
+  const removeTag = e.target.closest('[data-remove-tag]');
+  if (removeTag) {
+    const passage = state.passages.find((x) => x.id === removeTag.dataset.tagPassage);
+    if (!passage) return;
+    passage.tags = (passage.tags ?? []).filter((t) => t !== removeTag.dataset.removeTag);
+    ui.filter.tags = ui.filter.tags.filter((t) => tagCounts().some(([tag]) => tag === t));
+    saveState(state);
+    render();
+    return;
+  }
+  const addTag = e.target.closest('[data-add-tag]');
+  if (addTag) {
+    openTagInput(addTag);
     return;
   }
   const toggleVerse = e.target.closest('[data-toggle-verse]');
@@ -514,6 +646,7 @@ els.passages.addEventListener('click', (e) => {
     if (!passage.verses.length) {
       state.passages = state.passages.filter((x) => x !== passage);
       delete state.openVocab[passage.id];
+      delete state.foldedPassages[passage.id];
     }
     ui.open = null;
     saveState(state);
@@ -551,6 +684,46 @@ els.passages.addEventListener('keydown', (e) => {
   if (e.target.matches('.w[data-word]')) { e.preventDefault(); openDrillFrom(e.target); }
   else if (e.target.matches('.verse-peek')) { e.preventDefault(); e.target.click(); }
 });
+
+/** A small input in place of the "+ tag" button, with the tags you already use. */
+function openTagInput(button) {
+  const passage = state.passages.find((x) => x.id === button.dataset.addTag);
+  if (!passage) return;
+  const wrap = document.createElement('span');
+  wrap.className = 'tag-input';
+  const listId = `tags-${passage.id}`;
+  wrap.innerHTML = `<input type="text" list="${listId}" placeholder="tag" aria-label="New tag for ${esc(passage.label)}" maxlength="24">
+    <datalist id="${listId}">${tagCounts().map(([t]) => `<option value="${esc(t)}"></option>`).join('')}</datalist>`;
+  button.replaceWith(wrap);
+  const input = wrap.querySelector('input');
+  input.focus();
+  const commit = () => {
+    const tag = input.value.trim().replace(/\s+/g, ' ');
+    if (tag) {
+      passage.tags = [...new Set([...(passage.tags ?? []), tag])];
+      saveState(state);
+    }
+    render();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    else if (e.key === 'Escape') { e.preventDefault(); render(); }
+  });
+  input.addEventListener('blur', commit);
+}
+
+function toggleFilterTag(tag) {
+  ui.filter.tags = ui.filter.tags.includes(tag)
+    ? ui.filter.tags.filter((t) => t !== tag)
+    : [...ui.filter.tags, tag];
+  render();
+}
+
+function clearFilter() {
+  ui.filter = { text: '', tags: [] };
+  $('#filter-text').value = '';
+  render();
+}
 
 function setCollapsed(key, collapsed) {
   if (collapsed) state.collapsed[key] = true;

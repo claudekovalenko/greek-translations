@@ -401,13 +401,50 @@ details.paste .field-row { margin-top: 0.5rem; }
 
 .passage-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.8rem 1.4rem;
+  gap: 0.75rem;
+  padding: 0.7rem 1.4rem;
   border-bottom: 1px solid var(--line);
   background: var(--surface-2);
+  flex-wrap: wrap;
 }
+.passage.folded .passage-head { border-bottom: 0; }
+/* A folded passage is a list row: keep its controls out of the way until
+   the pointer is on it. */
+.passage.folded .passage-tools {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.passage.folded:hover .passage-tools,
+.passage.folded:focus-within .passage-tools { opacity: 1; }
+@media (hover: none) {
+  .passage.folded .passage-tools { opacity: 1; }
+}
+.passage.folded .passage-body { display: none; }
+
+.passage-head-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.passage-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0.15rem 0.2rem;
+  border-radius: var(--radius);
+  color: var(--ink);
+}
+.passage-toggle:hover { background: var(--surface-3); }
+.passage-toggle .caret { color: var(--muted); }
+.passage.folded .caret { transform: none; }
 
 .passage-title {
   margin: 0;
@@ -419,9 +456,94 @@ details.paste .field-row { margin-top: 0.5rem; }
 .passage-meta {
   color: var(--muted);
   font-size: 0.85rem;
-  margin-left: 0.6rem;
   font-weight: 400;
 }
+
+.passage-progress {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+}
+
+/* tags */
+.tags { display: inline-flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+
+.tag {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.tag-name, .tag-del {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.76rem;
+  color: var(--ink-2);
+  padding: 0.1rem 0.5rem;
+}
+.tag-name:hover { background: var(--accent-soft); color: var(--accent); }
+.tag-del { padding-left: 0.15rem; padding-right: 0.4rem; color: var(--muted); }
+.tag-del:hover { background: var(--bad-soft); color: var(--bad); }
+
+.tag-add {
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  color: var(--muted);
+  padding: 0.1rem 0.5rem;
+}
+.tag-add:hover { border-color: var(--accent); color: var(--accent); }
+.tag-input input {
+  width: 7rem;
+  font-size: 0.8rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+
+/* filter panel */
+.filter-text { width: 100%; }
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.6rem;
+}
+.filter-tags .hint { margin: 0; }
+
+.chip-filter {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--ink-2);
+  padding: 0.12rem 0.55rem;
+}
+.chip-filter:hover { border-color: var(--accent); color: var(--accent); }
+.chip-filter.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.chip-filter .n { font-variant-numeric: tabular-nums; opacity: 0.7; font-size: 0.9em; }
+
+.filter-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+.filter-count { color: var(--muted); font-size: 0.85rem; }
 
 .verse {
   display: grid;
@@ -983,7 +1105,8 @@ dialog li { margin: 0.35rem 0; }
 /* ---------- print ---------- */
 
 @media print {
-  .top-actions, .rail, .drill, .passage-head button, .verse-tools { display: none !important; }
+  .top-actions, .rail, .drill, .passage-tools, .verse-tools, .tag-add, .tag-del { display: none !important; }
+  .passage.folded .passage-body { display: block !important; }
   .verse.collapsed .verse-body { display: block !important; }
   .verse-peek { display: none !important; }
   .verse-num { color: #666; }
