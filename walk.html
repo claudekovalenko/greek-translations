@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anagnosis Walk-through</title>
+<meta name="description" content="Walk through a Greek New Testament passage word by word, parse the verbs and nouns, and come away with your own translation.">
+<meta name="theme-color" content="#2b4c9b">
+<meta name="color-scheme" content="light dark">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gentium+Plus:ital,wght@0,400;0,700;1,400&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/walk.css">
+</head>
+<body class="walk">
+<header class="top no-print">
+  <div class="brand">
+    <a class="wordmark wk-home" href="walk.html">Anagnosis<span class="gk-sub">walk-through</span></a>
+    <span class="tagline">One word at a time, then your own translation.</span>
+  </div>
+  <div class="top-actions">
+    <a class="btn btn-quiet" href="index.html">Full workbench</a>
+  </div>
+</header>
+
+<main class="wk-main" id="app"></main>
+
+<dialog id="cheat" class="wk-cheat">
+  <h2>Endings cheat sheet</h2>
+
+  <h3>Spotting the verb</h3>
+  <ul>
+    <li><b>ἐ‑ at the front</b> (the augment, or a lengthened first vowel): past time, indicative only. Imperfect, aorist or pluperfect.</li>
+    <li><b>σ before the ending</b>: future (λύ<b>σ</b>ω) or first aorist (ἔλυ<b>σα</b>).</li>
+    <li><b>θη / θε</b>: aorist passive (ἐλύ<b>θη</b>ν); <b>θησ</b>: future passive.</li>
+    <li><b>Reduplication</b> (<b>λε</b>λυκα) and <b>κα</b>: perfect.</li>
+    <li><b>Long vowel ω / η</b> in the ending (λύ<b>ω</b>μεν, λύ<b>η</b>τε): subjunctive.</li>
+  </ul>
+
+  <table class="wk-cheat-table">
+    <caption>Verb endings</caption>
+    <thead><tr><th></th><th>primary active<br><span class="muted">present, future</span></th><th>primary middle/passive</th><th>secondary active<br><span class="muted">imperfect, 2nd aorist</span></th><th>secondary middle/passive</th><th>1st aorist active</th></tr></thead>
+    <tbody class="greek">
+      <tr><th>1 sg</th><td>‑ω</td><td>‑ομαι</td><td>‑ον</td><td>‑ομην</td><td>‑σα</td></tr>
+      <tr><th>2 sg</th><td>‑εις</td><td>‑ῃ</td><td>‑ες</td><td>‑ου</td><td>‑σας</td></tr>
+      <tr><th>3 sg</th><td>‑ει</td><td>‑εται</td><td>‑ε(ν)</td><td>‑ετο</td><td>‑σε(ν)</td></tr>
+      <tr><th>1 pl</th><td>‑ομεν</td><td>‑ομεθα</td><td>‑ομεν</td><td>‑ομεθα</td><td>‑σαμεν</td></tr>
+      <tr><th>2 pl</th><td>‑ετε</td><td>‑εσθε</td><td>‑ετε</td><td>‑εσθε</td><td>‑σατε</td></tr>
+      <tr><th>3 pl</th><td>‑ουσι(ν)</td><td>‑ονται</td><td>‑ον</td><td>‑οντο</td><td>‑σαν</td></tr>
+    </tbody>
+  </table>
+  <p class="hint">Infinitives: ‑ειν, ‑σαι, ‑εσθαι, ‑θηναι, ‑ναι. Participles: ‑ων / ‑ουσα / ‑ον, ‑μενος, ‑σας, ‑θεις.</p>
+
+  <table class="wk-cheat-table">
+    <caption>Nouns and the article</caption>
+    <thead><tr><th></th><th>2nd decl. masc.</th><th>2nd decl. neut.</th><th>1st decl. fem.</th><th>3rd decl.</th><th>article m / f / n</th></tr></thead>
+    <tbody class="greek">
+      <tr><th>nom sg</th><td>λόγος</td><td>ἔργον</td><td>ἀρχή</td><td>σάρξ</td><td>ὁ ἡ τό</td></tr>
+      <tr><th>gen sg</th><td>λόγου</td><td>ἔργου</td><td>ἀρχῆς</td><td>σαρκός</td><td>τοῦ τῆς τοῦ</td></tr>
+      <tr><th>dat sg</th><td>λόγῳ</td><td>ἔργῳ</td><td>ἀρχῇ</td><td>σαρκί</td><td>τῷ τῇ τῷ</td></tr>
+      <tr><th>acc sg</th><td>λόγον</td><td>ἔργον</td><td>ἀρχήν</td><td>σάρκα</td><td>τόν τήν τό</td></tr>
+      <tr><th>nom pl</th><td>λόγοι</td><td>ἔργα</td><td>ἀρχαί</td><td>σάρκες</td><td>οἱ αἱ τά</td></tr>
+      <tr><th>gen pl</th><td>λόγων</td><td>ἔργων</td><td>ἀρχῶν</td><td>σαρκῶν</td><td>τῶν τῶν τῶν</td></tr>
+      <tr><th>dat pl</th><td>λόγοις</td><td>ἔργοις</td><td>ἀρχαῖς</td><td>σαρξί(ν)</td><td>τοῖς ταῖς τοῖς</td></tr>
+      <tr><th>acc pl</th><td>λόγους</td><td>ἔργα</td><td>ἀρχάς</td><td>σάρκας</td><td>τούς τάς τά</td></tr>
+    </tbody>
+  </table>
+  <p class="hint">Not sure of a noun's case? Look at the article in front of it: it carries the same case, number and gender.</p>
+
+  <form method="dialog"><button class="btn btn-primary" type="submit">Close</button></form>
+</dialog>
+
+<script type="module" src="js/walk.js"></script>
+</body>
+</html>

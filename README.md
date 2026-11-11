@@ -24,6 +24,18 @@ It is a Progressive Web App: install it from the browser menu (or the *Install a
 
 You can also paste Greek text yourself (one verse per line). Pasted text has no parsing data, so only the translation boxes are available for it.
 
+## Walk-through: one passage, start to finish
+
+`walk.html` (the *Walk-through* button in the header) is a simpler, guided mode for translating one passage:
+
+1. Give a reference, or open `walk.html?ref=John 1:1-5` directly.
+2. The passage comes up one word at a time. For each word you say what kind of word it is (verb, noun, article, preposition…), then parse every verb and noun by picking person, tense, voice, mood and number, or case, number and gender. *Check* marks each field; *Show me* gives the answer.
+3. Each word then shows its dictionary form and meaning, and what the form means for your English: the subject built into a verb ending, what the tense and mood say, what the case usually means.
+4. After the last word of a verse you write that verse in your own English. Words you have done keep their meaning and parsing under them while you translate.
+5. At the end, **See my translation** puts your verses together as one text with verse numbers. Print it or save it as a PDF, copy it, or download it as `.txt` or `.md`, with the Greek and your word-by-word parsing if you want them.
+
+Every walk-through is saved in the browser, so you can stop and continue later, and the start page lists them. An endings cheat sheet is one click away throughout.
+
 ## Running locally
 
 ```sh
@@ -60,6 +72,7 @@ Layout:
 | --- | --- |
 | `index.html`, `css/style.css` | page and styles |
 | `js/main.js` | UI: passages, drill panel, export |
+| `walk.html`, `js/walk.js`, `js/walk-core.js`, `css/walk.css` | the guided walk-through |
 | `js/morphgnt.js` | parsing MorphGNT lines, compact cache format, verse grouping |
 | `js/refs.js`, `js/books.js` | reference parsing and the 27-book table |
 | `js/parsing.js` | parse-code decoding, drill fields, answer checking |
