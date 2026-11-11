@@ -36,7 +36,13 @@ You can also paste Greek text yourself (one verse per line). Pasted text has no 
 
 It plays like a game: the verse is a row of 3D letter tiles, each word card flips over to show its answer and tilts towards your pointer, and Greek letters drift past in the background. Right first time earns XP (10 for the word class, 20 for a parse, 30 for each verse you translate) and builds a streak; levels come every 100 XP, and finishing a passage brings a trophy. Sound effects are off unless you switch them on, and the motion is turned off if your system asks for reduced motion. None of it shows up when you print.
 
+**Help with conjugations.** While parsing, **💡 Help me** gives clues in two steps. First it says where to look in this form: an augment, a σ or θη, reduplication, a long subjunctive vowel, or the article that agrees with a noun. Then it shows the pattern to compare the form with: the model verb λύω in the same tense, voice and mood, beside your word's own verb, with the endings in bold. After a word is parsed, its row in the pattern is highlighted. **Conjugation chart** shows the whole of λύω and εἰμί with memory tips for the endings.
+
 Every walk-through is saved in the browser, so you can stop and continue later, and the start page lists them. An endings cheat sheet is one click away throughout.
+
+## Hodos: the walk-through as a game
+
+`quest.html` (🎮 in the header) plays a passage as a 3D walk-through game, sharing its progress with the walk-through page. A traveller walks a road through the countryside, and every Greek word is a stone standing in the way. Name the kind of word and parse it, and the stone moves to the roadside with its meaning carved on it. Each verse ends at a gate, which opens once you write the verse in English, and the road ends at a city where your finished translation is waiting. Number keys choose the kind of word, Enter checks and moves on, and ◀ ▶ (or the arrow keys) walk back and on. The same XP, streaks and help are available. three.js r160 (MIT) is shipped in `vendor/three/`, so the game works offline.
 
 ## Running locally
 
@@ -75,6 +81,8 @@ Layout:
 | `index.html`, `css/style.css` | page and styles |
 | `js/main.js` | UI: passages, drill panel, export |
 | `walk.html`, `js/walk.js`, `js/walk-core.js`, `js/walk-fx.js`, `css/walk.css` | the guided walk-through and its game effects |
+| `js/walk-store.js`, `js/walk-help.js` | saved walk-throughs (shared with the game); parsing clues, patterns and the conjugation chart |
+| `quest.html`, `js/quest.js`, `css/quest.css`, `vendor/three/` | Hodos, the 3D walk-through game |
 | `js/morphgnt.js` | parsing MorphGNT lines, compact cache format, verse grouping |
 | `js/refs.js`, `js/books.js` | reference parsing and the 27-book table |
 | `js/parsing.js` | parse-code decoding, drill fields, answer checking |

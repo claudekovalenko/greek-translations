@@ -118,8 +118,10 @@ export function bindTilt(root) {
     const r = card.getBoundingClientRect();
     const px = (e.clientX - r.left) / r.width - 0.5;
     const py = (e.clientY - r.top) / r.height - 0.5;
-    card.style.setProperty('--ry', `${(px * 5).toFixed(2)}deg`);
-    card.style.setProperty('--rx', `${(-py * 4).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(px * 9).toFixed(2)}deg`);
+    card.style.setProperty('--rx', `${(-py * 7).toFixed(2)}deg`);
+    card.style.setProperty('--gx', `${((px + 0.5) * 100).toFixed(1)}%`);
+    card.style.setProperty('--gy', `${((py + 0.5) * 100).toFixed(1)}%`);
   });
   root.addEventListener('pointerout', (e) => {
     const card = e.target.closest('.wk-tilt');

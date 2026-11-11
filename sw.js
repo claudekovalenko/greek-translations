@@ -6,7 +6,7 @@
 //  - Google Fonts and MorphGNT data files: cache first (they never change for
 //    a given URL), so the Greek text you have read stays readable offline.
 
-const SHELL_CACHE = 'anagnosis-shell-v4';
+const SHELL_CACHE = 'anagnosis-shell-v5';
 const ASSET_CACHE = 'anagnosis-assets-v2';
 
 const SHELL = [
@@ -17,6 +17,12 @@ const SHELL = [
   './js/walk.js',
   './js/walk-core.js',
   './js/walk-fx.js',
+  './js/walk-store.js',
+  './js/walk-help.js',
+  './quest.html',
+  './css/quest.css',
+  './js/quest.js',
+  './vendor/three/three.module.min.js',
   './manifest.webmanifest',
   './css/style.css',
   './js/main.js',
@@ -94,7 +100,8 @@ async function networkFirst(request, cacheName) {
     const hit = await cache.match(request, { ignoreSearch: true });
     if (hit) return hit;
     if (request.mode === 'navigate') {
-      const shell = await cache.match(new URL(request.url).pathname.endsWith('/walk.html') ? './walk.html' : './index.html');
+      const page = new URL(request.url).pathname.match(/\/(walk|quest)\.html$/);
+      const shell = await cache.match(page ? `./${page[1]}.html` : './index.html');
       if (shell) return shell;
     }
     throw new Error('offline and not cached');

@@ -56,6 +56,8 @@
 .wk-opts-inline summary { cursor: pointer; color: var(--ink-2); }
 
 .wk-verses { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.35rem; }
+/* Room below the last verse, so the page can always hold the card still. */
+.wk-verses { margin-bottom: 70vh; }
 
 .wk-verse.past, .wk-verse.future { font-size: 0.95rem; }
 .wk-past-btn {
@@ -337,7 +339,7 @@ body.walk .btn-quiet:active:not(:disabled) { transform: translateY(1px); }
   transition: transform 0.18s cubic-bezier(.3,1.5,.5,1), box-shadow 0.18s, background 0.2s;
 }
 .wk-line.enter .wk-w {
-  animation: wk-tile-in 0.45s cubic-bezier(.3,1.4,.5,1) both;
+  animation: wk-tile-in 0.45s cubic-bezier(.3,1.4,.5,1) backwards;
   animation-delay: calc(var(--i, 0) * 25ms);
 }
 @keyframes wk-tile-in { from { transform: translateY(-14px) rotateX(70deg); opacity: 0; } }
@@ -351,7 +353,7 @@ body.walk .btn-quiet:active:not(:disabled) { transform: translateY(1px); }
   box-shadow: 0 7px 0 var(--accent-edge), 0 18px 22px -8px rgba(43, 76, 155, 0.55);
   animation: wk-bob 1.6s ease-in-out infinite;
 }
-.wk-line.enter .wk-w.cur { animation: wk-tile-in 0.45s cubic-bezier(.3,1.4,.5,1) both, wk-bob 1.6s ease-in-out 0.5s infinite; animation-delay: calc(var(--i, 0) * 25ms), 0.5s; }
+.wk-line.enter .wk-w.cur { animation: wk-tile-in 0.45s cubic-bezier(.3,1.4,.5,1) backwards, wk-bob 1.6s ease-in-out 0.5s infinite; animation-delay: calc(var(--i, 0) * 25ms), 0.5s; }
 @keyframes wk-bob { 0%, 100% { transform: translateY(-6px) rotateX(10deg); } 50% { transform: translateY(-11px) rotateX(-4deg); } }
 .wk-w.ok { background: var(--ok-soft); border-color: var(--ok-edge); box-shadow: 0 5px 0 var(--ok-edge); }
 .wk-w.miss { background: var(--bad-soft); border-color: var(--bad-edge); box-shadow: 0 5px 0 var(--bad-edge); }
@@ -364,11 +366,22 @@ body.walk .btn-quiet:active:not(:disabled) { transform: translateY(1px); }
   border-radius: 14px;
   box-shadow: 0 8px 0 var(--line), 0 24px 40px -20px rgba(0, 0, 0, 0.35);
   transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-  transform-origin: 50% 0;
-  transition: transform 0.25s ease-out;
+  transform-origin: 50% 50%;
+  transition: transform 0.2s ease-out, box-shadow 0.2s;
   margin-top: 0.8rem;
+  position: relative;
 }
-.wk-card.enter { animation: wk-card-in 0.6s cubic-bezier(.25,1.3,.5,1) both; }
+.wk-tilt::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 0%), rgba(255, 255, 255, 0.45), transparent 55%);
+  opacity: 0; transition: opacity 0.25s;
+  mix-blend-mode: soft-light;
+}
+.wk-tilt:hover::after { opacity: 1; }
+@media (hover: hover) and (pointer: fine) {
+  .wk-card.wk-tilt:hover { box-shadow: 0 12px 0 var(--line), 0 34px 50px -22px rgba(0, 0, 0, 0.45); }
+}
+.wk-card.enter { animation: wk-card-in 0.6s cubic-bezier(.25,1.3,.5,1) backwards; }
 @keyframes wk-card-in {
   from { transform: perspective(1100px) rotateY(-95deg) translateZ(-120px); opacity: 0; }
   60%  { opacity: 1; }
@@ -464,3 +477,34 @@ body.walk .btn-quiet:active:not(:disabled) { transform: translateY(1px); }
   .wk-card { transform: none; }
   .wk-w.cur { transform: translateY(-6px); }
 }
+
+/* ---------- stable tiles ---------- */
+
+.wk-w .hide { visibility: hidden; }
+
+/* ---------- help, patterns and the chart ---------- */
+
+.wk-help {
+  margin-top: 0.8rem; padding: 0.7rem 0.9rem;
+  background: var(--gold-soft); border: 2px solid var(--gold); border-radius: 12px;
+}
+.wk-help h4 { margin: 0 0 0.3rem; font-size: 0.95rem; }
+.wk-help ul { margin: 0; padding-left: 1.1rem; }
+.wk-help li { margin: 0.25rem 0; }
+.wk-help-btn { border-color: var(--gold) !important; box-shadow: 0 4px 0 var(--gold-edge) !important; }
+.wk-pattern { margin-top: 0.6rem; }
+.wk-pattern-title { margin: 0.2rem 0 0.3rem; font-size: 0.92rem; }
+.wk-pattern-scroll { overflow-x: auto; }
+.wk-pattern table { border-collapse: collapse; font-size: 0.95rem; }
+.wk-pattern th, .wk-pattern td { padding: 0.2rem 0.8rem 0.2rem 0; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.wk-pattern thead th { font-size: 1rem; font-weight: 700; }
+.wk-pattern tbody th { font-size: 0.78rem; color: var(--muted); font-weight: 500; }
+.wk-pattern td.greek { font-size: 1.1rem; }
+.wk-pattern td b { color: var(--accent); }
+.wk-pattern tr.hit td, .wk-pattern tr.hit th { background: var(--ok-soft); color: var(--ok); }
+.wk-pattern tr.hit th { font-weight: 700; }
+.wk-pattern-details { margin-top: 0.6rem; }
+.wk-pattern-details summary { cursor: pointer; color: var(--ink-2); }
+.wk-tips { padding-left: 1.2rem; margin: 0.4rem 0 0.8rem; }
+.wk-tips li { margin: 0.35rem 0; }
+.wk-chart td { font-size: 1rem; }

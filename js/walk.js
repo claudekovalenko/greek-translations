@@ -1,23 +1,20 @@
 // Anagnosis walk-through: one passage, one word at a time, then your translation.
 
-import { parseReference } from './refs.js';
-import { loadBook } from './datasource.js';
-import { groupVerses, selectVerses } from './morphgnt.js';
+import { store, save, current, touch, openPassage } from './walk-store.js';
 import { FIELDS, checkParse, describeParse } from './parsing.js';
 import { loadLexicon, entryFor, shortGloss, frequencyBand } from './lexicon.js';
 import { download, copyText } from './export.js';
 import {
-  CLASSES, wordClass, classLabel, walkFields, renderingHints, newSession, answerKey, answerFor,
+  CLASSES, wordClass, classLabel, walkFields, renderingHints, answerKey, answerFor,
   wordStage, progress, nextPosition, prevPosition, verseLabel, translationText, translationMarkdown,
   formatDate, fileSlug, score, level, recordStreak, POINTS,
 } from './walk-core.js';
 import { confetti, confettiFrom, floatPoints, banner, startSky, bindTilt, sound } from './walk-fx.js';
+import { helpHtml, patternHtml, chartHtml, HELP_STEPS } from './walk-help.js';
 
-const STORE_KEY = 'anagnosis-walk-v1';
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const store = loadStore();
 const ui = {
   view: 'start',      // 'start' | 'walk' | 'done'
   status: '',
@@ -32,34 +29,6 @@ const ui = {
   celebrate: false,   // play the finish animation once
 };
 const root = $('#app');
-
-// ---------------------------------------------------------------------------
-// Storage
-
-function loadStore() {
-  try {
-    const data = JSON.parse(localStorage.getItem(STORE_KEY) ?? 'null');
-    if (data && Array.isArray(data.sessions)) return data;
-  } catch { /* fall through */ }
-  return { current: null, sessions: [], opts: { askClass: true, parseArticles: false, sound: false } };
-}
-
-let saveTimer = null;
-function save({ soon = false } = {}) {
-  clearTimeout(saveTimer);
-  const write = () => {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch { /* storage full or blocked */ }
-  };
-  if (soon) saveTimer = setTimeout(write, 300);
-  else write();
-}
-
-const current = () => store.sessions.find((s) => s.id === store.current) ?? null;
-
-function touch(session) {
-  session.updated = Date.now();
-  save();
-}
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -101,32 +70,11 @@ function bindGlobal() {
 // Starting a passage
 
 async function start(text) {
-  let range;
-  try {
-    range = parseReference(text);
-  } catch (err) {
-    return setStatus(err.message, 'error');
-  }
-  // The same passage again: carry on where you were.
-  const existing = store.sessions.find((s) => s.label === range.label && !s.finished);
-  if (existing) return open(existing.id);
-
   ui.busy = true;
-  setStatus(`Loading ${range.label}…`);
   try {
-    const { words } = await loadBook(range.book.id, { onStatus: (m) => setStatus(m) });
-    const verses = selectVerses(groupVerses(words), range);
-    if (!verses.length) throw new Error(`No verses found for ${range.label}.`);
-    const session = newSession({ label: range.label, verses });
-    session.opts = { ...store.opts };
-    store.sessions.unshift(session);
-    store.current = session.id;
-    save();
+    const { session } = await openPassage(text, { onStatus: (m) => setStatus(m) });
     ui.busy = false;
-    ui.status = '';
-    ui.view = 'walk';
-    render();
-    scrollToCard();
+    open(session.id);
   } catch (err) {
     ui.busy = false;
     setStatus(err.message, 'error');
@@ -218,6 +166,7 @@ function onClick(e) {
     return;
   }
   if (d.action === 'cheat') return $('#cheat').showModal();
+  if (d.action === 'chart') return openChart();
   if (!s) return;
 
   const pos = s.at;
@@ -281,6 +230,16 @@ function onClick(e) {
       render();
       break;
     }
+    case 'help': {
+      const a = ensureAnswer(s);
+      a.help = Math.min(HELP_STEPS, (a.help ?? 0) + 1);
+      touch(s);
+      render();
+      break;
+    }
+    case 'chart':
+      openChart();
+      break;
     case 'reveal': {
       const a = ensureAnswer(s);
       a.revealed = true;
@@ -396,12 +355,19 @@ function flash(message) {
 
 function scrollToCard() {
   requestAnimationFrame(() => {
-    const card = $('.wk-card', root);
-    if (!card) return;
-    const r = card.getBoundingClientRect();
-    if (r.top < 70 || r.bottom > innerHeight) card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // Bring the verse you are in to the top of the screen when it is not
+    // already near there. Within a verse it then stays put (see render()).
+    const verse = $('.wk-verse.current', root);
+    if (!verse) return;
+    const top = verse.getBoundingClientRect().top;
+    const cardTop = $('.wk-card', verse)?.getBoundingClientRect().top ?? 0;
+    if (top < 0 || top > innerHeight * 0.35 || cardTop > innerHeight * 0.6) {
+      window.scrollTo({ top: window.scrollY + top - 12, behavior: reducedMotion() ? 'auto' : 'smooth' });
+    }
   });
 }
+
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function autosize(ta) {
   ta.style.height = 'auto';
@@ -413,10 +379,20 @@ function autosize(ta) {
 
 function render() {
   const s = current();
+  // Hold the word card still on screen across a redraw, as long as you stay
+  // in the same verse: answering or moving on must not scroll the page.
+  const anchor = ui.view === 'walk' ? $('.wk-verse.current', root) : null;
+  const anchorKey = anchor ? $('.wk-vlabel', anchor)?.textContent : null;
+  const anchorTop = anchor?.getBoundingClientRect().top;
   if (ui.view === 'walk' && s) root.innerHTML = renderWalk(s);
   else if (ui.view === 'done' && s) root.innerHTML = renderDone(s);
   else root.innerHTML = renderStart();
   root.querySelectorAll('textarea[data-tr]').forEach(autosize);
+  const after = ui.view === 'walk' ? $('.wk-verse.current', root) : null;
+  if (after && anchorKey != null && $('.wk-vlabel', after)?.textContent === anchorKey) {
+    const shift = after.getBoundingClientRect().top - anchorTop;
+    if (Math.abs(shift) > 0.5) window.scrollBy(0, shift);
+  }
   if (ui.focusTranslation) {
     ui.focusTranslation = false;
     $('textarea[data-tr].current', root)?.focus({ preventScroll: true });
@@ -477,6 +453,7 @@ function renderWalk(s) {
     <div class="wk-head-row">
       <h1>${esc(s.label)}</h1>
       <div class="wk-head-actions">
+        <button class="btn btn-sm btn-quiet" type="button" data-action="chart">Conjugation chart</button>
         <button class="btn btn-sm btn-quiet" type="button" data-action="cheat">Endings cheat sheet</button>
         <button class="btn btn-sm" type="button" data-action="finish">See my translation</button>
         <button class="btn btn-sm btn-quiet" type="button" data-action="home">All passages</button>
@@ -507,9 +484,10 @@ function renderCurrentVerse(s, verse, vi) {
     const cur = wi === s.at.w;
     let state = '';
     if (a?.done) state = a.firstTry === false || a.clsOk === false ? ' miss' : ' ok';
-    const under = a?.done
-      ? `<span class="wk-u">${esc(shortGloss(w.lemma) ?? '')}</span><span class="wk-p">${esc(walkFields(w, { parseArticles: true }).length ? describeParse(w) : '')}</span>`
-      : '';
+    // The meaning lines are always laid out (hidden until the word is done),
+    // so a tile never changes size and the page never jumps.
+    const hidden = a?.done ? '' : ' hide" aria-hidden="true';
+    const under = `<span class="wk-u${hidden}">${esc(shortGloss(w.lemma) ?? '') || '&nbsp;'}</span><span class="wk-p${hidden}">${esc(walkFields(w, { parseArticles: true }).length ? describeParse(w) : '') || '&nbsp;'}</span>`;
     return `<button type="button" class="wk-w${cur ? ' cur' : ''}${state}" data-goto="${vi}.${wi}" aria-current="${cur}" style="--i:${wi}">
       <span class="greek wk-g">${esc(w.text)}</span>${under}</button>`;
   }).join(' ');
@@ -588,15 +566,18 @@ function renderCard(s, verse, vi, wi) {
       return `<div class="wk-field${mark === false ? ' bad' : ''}"><span class="wk-flabel">${FIELDS[f].label}${flag}</span><div class="wk-segs">${opts}</div></div>`;
     }).join('');
     const tried = a.marks && Object.values(a.marks).some((m) => m === false);
+    const help = a.help ?? 0;
     return `<section class="wk-card ${fx}">${head}${classLine}
       <h2>Parse it</h2>
       ${rows}
       ${a.notice ? `<p class="status error">${esc(a.notice)}</p>` : ''}
-      ${tried ? '<p class="hint">Fields marked ✗ are not right yet. Change them and check again, or ask to be shown.</p>' : ''}
+      ${tried ? '<p class="hint">Fields marked ✗ are not right yet. Change them and check again, or ask for help.</p>' : ''}
+      ${helpHtml(word, help, { verseWords: verse.words, wi, headword: entryFor(word.lemma)?.headword ?? '' })}
       <div class="wk-card-actions">
         ${back}
+        ${help < HELP_STEPS ? `<button class="btn wk-help-btn" type="button" data-action="help">💡 ${help ? 'Show the pattern' : 'Help me'}</button>` : ''}
         <button class="btn btn-quiet" type="button" data-action="reveal">Show me</button>
-        <button class="btn btn-quiet" type="button" data-action="cheat">Cheat sheet</button>
+        <button class="btn btn-quiet" type="button" data-action="chart">Chart</button>
         <button class="btn btn-primary" type="button" data-action="check" data-primary>Check</button>
       </div>
     </section>`;
@@ -618,6 +599,7 @@ function renderCard(s, verse, vi, wi) {
   return `<section class="wk-card ${fx}">${head}${classLine}${parsed}
     <h3>Dictionary form</h3>${lex}
     ${hints ? `<h3>What this means for your translation</h3><ul class="wk-hints">${hints}</ul>` : ''}
+    ${fields.length ? `<details class="wk-pattern-details"${a.help || a.firstTry === false ? ' open' : ''}><summary>See where it sits in the pattern</summary>${patternHtml(word, { reveal: true })}</details>` : ''}
     <div class="wk-card-actions">
       ${back}
       <button class="btn btn-primary" type="button" data-action="next" data-primary>${lastWord ? 'Translate the verse →' : 'Next word →'}</button>
@@ -690,3 +672,16 @@ function renderDone(s) {
 }
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** The conjugation chart, built once from the paradigm generator. */
+function openChart() {
+  let dlg = $('#chart');
+  if (!dlg) {
+    dlg = document.createElement('dialog');
+    dlg.id = 'chart';
+    dlg.className = 'wk-cheat';
+    dlg.innerHTML = `${chartHtml()}<form method="dialog"><button class="btn btn-primary" type="submit">Close</button></form>`;
+    document.body.appendChild(dlg);
+  }
+  dlg.showModal();
+}
