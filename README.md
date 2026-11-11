@@ -34,6 +34,8 @@ You can also paste Greek text yourself (one verse per line). Pasted text has no 
 4. After the last word of a verse you write that verse in your own English. Words you have done keep their meaning and parsing under them while you translate.
 5. At the end, **See my translation** puts your verses together as one text with verse numbers. Print it or save it as a PDF, copy it, or download it as `.txt` or `.md`, with the Greek and your word-by-word parsing if you want them.
 
+It plays like a game: the verse is a row of 3D letter tiles, each word card flips over to show its answer and tilts towards your pointer, and Greek letters drift past in the background. Right first time earns XP (10 for the word class, 20 for a parse, 30 for each verse you translate) and builds a streak; levels come every 100 XP, and finishing a passage brings a trophy. Sound effects are off unless you switch them on, and the motion is turned off if your system asks for reduced motion. None of it shows up when you print.
+
 Every walk-through is saved in the browser, so you can stop and continue later, and the start page lists them. An endings cheat sheet is one click away throughout.
 
 ## Running locally
@@ -72,7 +74,7 @@ Layout:
 | --- | --- |
 | `index.html`, `css/style.css` | page and styles |
 | `js/main.js` | UI: passages, drill panel, export |
-| `walk.html`, `js/walk.js`, `js/walk-core.js`, `css/walk.css` | the guided walk-through |
+| `walk.html`, `js/walk.js`, `js/walk-core.js`, `js/walk-fx.js`, `css/walk.css` | the guided walk-through and its game effects |
 | `js/morphgnt.js` | parsing MorphGNT lines, compact cache format, verse grouping |
 | `js/refs.js`, `js/books.js` | reference parsing and the 27-book table |
 | `js/parsing.js` | parse-code decoding, drill fields, answer checking |

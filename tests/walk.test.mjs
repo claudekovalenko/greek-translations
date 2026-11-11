@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   wordClass, classLabel, walkFields, renderingHints, newSession, wordStage, progress,
-  nextPosition, prevPosition, translationText, translationMarkdown, fileSlug,
+  nextPosition, prevPosition, score, level, recordStreak, translationText, translationMarkdown, fileSlug,
 } from '../js/walk-core.js';
 
 const verb = { b: 4, c: 3, v: 16, pos: 'V-', code: '3AAI-S--', text: 'ἠγάπησεν', word: 'ἠγάπησεν', lemma: 'ἀγαπάω' };
@@ -128,4 +128,20 @@ test('chapter numbers appear where a passage crosses chapters', () => {
 
 test('file names', () => {
   assert.equal(fileSlug('1 Cor 13:4-7'), '1-cor-13-4-7');
+});
+
+test('points, levels and streaks', () => {
+  const s = session();
+  assert.equal(score(s), 0);
+  s.answers['0.1'] = { cls: 'verb', clsOk: true, firstTry: true, done: true };
+  s.answers['0.3'] = { cls: 'verb', clsOk: false, firstTry: false, done: true };
+  s.translations[0] = 'For God so loved the world';
+  assert.equal(score(s), 10 + 20 + 30);
+  assert.deepEqual(level(60), { level: 1, into: 60, size: 100 });
+  assert.equal(level(250).level, 3);
+  recordStreak(s, true); recordStreak(s, true); recordStreak(s, true);
+  assert.equal(s.streak, 3);
+  recordStreak(s, false);
+  assert.equal(s.streak, 0);
+  assert.equal(s.best, 3);
 });

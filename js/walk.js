@@ -9,8 +9,9 @@ import { download, copyText } from './export.js';
 import {
   CLASSES, wordClass, classLabel, walkFields, renderingHints, newSession, answerKey, answerFor,
   wordStage, progress, nextPosition, prevPosition, verseLabel, translationText, translationMarkdown,
-  formatDate, fileSlug,
+  formatDate, fileSlug, score, level, recordStreak, POINTS,
 } from './walk-core.js';
+import { confetti, confettiFrom, floatPoints, banner, startSky, bindTilt, sound } from './walk-fx.js';
 
 const STORE_KEY = 'anagnosis-walk-v1';
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -25,6 +26,10 @@ const ui = {
   showGreek: false,
   showNotes: false,
   focusTranslation: false,
+  lastCard: null,
+  lastVerse: null,   // the verse on screen, so its tiles only fly in once     // the word card on screen, so it only flips in when the word changes
+  fx: null,           // one-shot card animation: 'good' | 'bad'
+  celebrate: false,   // play the finish animation once
 };
 const root = $('#app');
 
@@ -36,7 +41,7 @@ function loadStore() {
     const data = JSON.parse(localStorage.getItem(STORE_KEY) ?? 'null');
     if (data && Array.isArray(data.sessions)) return data;
   } catch { /* fall through */ }
-  return { current: null, sessions: [], opts: { askClass: true, parseArticles: false } };
+  return { current: null, sessions: [], opts: { askClass: true, parseArticles: false, sound: false } };
 }
 
 let saveTimer = null;
@@ -66,6 +71,8 @@ async function init() {
   if (s) ui.view = s.finished ? 'done' : 'walk';
   render();
   bindGlobal();
+  startSky($('#wk-sky'));
+  bindTilt(root);
   const ref = new URLSearchParams(location.search).get('ref');
   if (ref) {
     history.replaceState(null, '', location.pathname);
@@ -162,10 +169,10 @@ function onSubmit(e) {
 function onChange(e) {
   const t = e.target;
   if (t.matches('[data-opt]')) {
-    const s = ui.view === 'start' ? null : current();
+    const s = ui.view === 'start' || t.dataset.opt === 'sound' ? null : current();
     const opts = s ? s.opts : store.opts;
     opts[t.dataset.opt] = t.checked;
-    if (!s) store.opts[t.dataset.opt] = t.checked;
+    if (t.dataset.opt === 'sound') sound('good', t.checked);
     save();
     render();
   } else if (t.matches('[data-show]')) {
@@ -232,6 +239,8 @@ function onClick(e) {
       const a = ensureAnswer(s);
       a.cls = d.cls;
       a.clsOk = d.cls === wordClass(word);
+      recordStreak(s, a.clsOk);
+      reward(btn, a.clsOk, POINTS.cls, s);
       touch(s);
       render();
       break;
@@ -240,6 +249,7 @@ function onClick(e) {
       const a = ensureAnswer(s);
       a.parse = { ...a.parse, [d.field]: d.value };
       if (a.marks) delete a.marks[d.field];
+      sound('tap', store.opts.sound);
       touch(s);
       render();
       break;
@@ -257,7 +267,15 @@ function onClick(e) {
       const result = checkParse(word, a.parse);
       const ok = fields.every((f) => result.fields[f].ok);
       a.marks = Object.fromEntries(fields.map((f) => [f, result.fields[f].ok]));
-      if (a.firstTry == null) a.firstTry = ok;
+      const first = a.firstTry == null;
+      if (first) {
+        a.firstTry = ok;
+        recordStreak(s, ok);
+        reward(btn, ok, POINTS.parse, s);
+      } else {
+        ui.fx = ok ? 'good' : 'bad';
+        sound(ok ? 'good' : 'bad', store.opts.sound);
+      }
       if (ok) a.solved = true;
       touch(s);
       render();
@@ -266,14 +284,27 @@ function onClick(e) {
     case 'reveal': {
       const a = ensureAnswer(s);
       a.revealed = true;
-      if (a.firstTry == null) a.firstTry = false;
+      if (a.firstTry == null) {
+        a.firstTry = false;
+        recordStreak(s, false);
+      }
       touch(s);
       render();
       break;
     }
     case 'next': {
       if (word) ensureAnswer(s).done = true;
+      // Leaving a verse you have translated earns its points.
+      if (!word && s.translations[pos.v]?.trim()) {
+        floatPoints(btn, `+${POINTS.verse} XP`);
+        sound('good', store.opts.sound);
+      }
       const next = nextPosition(s, pos);
+      if (next && next.w === s.verses[next.v].words.length) {
+        banner(`Verse ${s.verses[next.v].v} parsed!`);
+        confetti({ count: 60 });
+        sound('win', store.opts.sound);
+      }
       if (next) {
         s.at = next;
         touch(s);
@@ -327,8 +358,32 @@ function finish(s) {
   s.finished = Date.now();
   touch(s);
   ui.view = 'done';
+  ui.celebrate = true;
   render();
   window.scrollTo({ top: 0 });
+  sound('win', store.opts.sound);
+  confetti({ y: innerHeight * 0.25, count: 90, spread: 1.4 });
+  setTimeout(() => confetti({ x: innerWidth * 0.2, y: innerHeight * 0.4, count: 40 }), 350);
+  setTimeout(() => confetti({ x: innerWidth * 0.8, y: innerHeight * 0.4, count: 40 }), 600);
+}
+
+/** Points, confetti and sound for a first-try answer; the level-up banner when one is crossed. */
+function reward(el, right, points, s) {
+  ui.fx = right ? 'good' : 'bad';
+  sound(right ? 'good' : 'bad', store.opts.sound);
+  if (!right) {
+    if ((s.best ?? 0) >= 3 && s.streak === 0) floatPoints(el, 'streak lost', 'bad');
+    return;
+  }
+  const before = level(score(s) - points).level;
+  floatPoints(el, `+${points} XP`);
+  confettiFrom(el, { count: s.streak >= 5 ? 36 : 18, spread: 0.6 });
+  if (level(score(s)).level > before) {
+    banner(`Level ${level(score(s)).level}!`);
+    confetti({ count: 80 });
+  } else if (s.streak > 0 && s.streak % 5 === 0) {
+    banner(`${s.streak} in a row!`);
+  }
 }
 
 function flash(message) {
@@ -399,7 +454,8 @@ function renderStart() {
 
 function optToggles(opts) {
   return `<label class="toggle"><input type="checkbox" data-opt="askClass"${opts.askClass ? ' checked' : ''}> Ask me what kind of word each one is</label>
-      <label class="toggle"><input type="checkbox" data-opt="parseArticles"${opts.parseArticles ? ' checked' : ''}> Parse the article (ὁ, ἡ, τό) too</label>`;
+      <label class="toggle"><input type="checkbox" data-opt="parseArticles"${opts.parseArticles ? ' checked' : ''}> Parse the article (ὁ, ἡ, τό) too</label>
+      <label class="toggle"><input type="checkbox" data-opt="sound"${store.opts.sound ? ' checked' : ''}> Sound effects</label>`;
 }
 
 function renderWalk(s) {
@@ -426,11 +482,23 @@ function renderWalk(s) {
         <button class="btn btn-sm btn-quiet" type="button" data-action="home">All passages</button>
       </div>
     </div>
-    <div class="meter" aria-hidden="true"><i style="width:${pct}%"></i></div>
-    <p class="wk-count">${p.done} of ${p.words} words · ${p.translated} of ${p.verses} verse${p.verses === 1 ? '' : 's'} translated</p>
+    ${hud(s, p, pct)}
     <details class="wk-opts-inline"><summary>Options</summary>${optToggles(s.opts)}</details>
   </div>
   <ol class="wk-verses">${verses}</ol>`;
+}
+
+function hud(s, p, pct) {
+  const xp = score(s);
+  const lv = level(xp);
+  const streak = s.streak ?? 0;
+  return `<div class="wk-hud">
+      <div class="wk-badge wk-lv" title="${xp} XP"><span class="wk-gem">${lv.level}</span><span class="wk-badge-text"><b>Level ${lv.level}</b><span class="wk-xpbar"><i style="width:${lv.into}%"></i></span><small>${xp} XP</small></span></div>
+      <div class="wk-badge wk-streak${streak >= 3 ? ' hot' : ''}${streak >= 8 ? ' blazing' : ''}" title="Right first time in a row. Best: ${s.best ?? 0}"><span class="wk-flame" aria-hidden="true">🔥</span><span class="wk-badge-text"><b>${streak}</b><small>streak</small></span></div>
+      <div class="wk-badge"><span class="wk-badge-text"><b>${p.done}/${p.words}</b><small>words</small></span></div>
+      <div class="wk-badge"><span class="wk-badge-text"><b>${p.translated}/${p.verses}</b><small>verses</small></span></div>
+    </div>
+    <div class="wk-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress through the passage"><i style="width:${pct}%"></i></div>`;
 }
 
 function renderCurrentVerse(s, verse, vi) {
@@ -442,13 +510,15 @@ function renderCurrentVerse(s, verse, vi) {
     const under = a?.done
       ? `<span class="wk-u">${esc(shortGloss(w.lemma) ?? '')}</span><span class="wk-p">${esc(walkFields(w, { parseArticles: true }).length ? describeParse(w) : '')}</span>`
       : '';
-    return `<button type="button" class="wk-w${cur ? ' cur' : ''}${state}" data-goto="${vi}.${wi}" aria-current="${cur}">
+    return `<button type="button" class="wk-w${cur ? ' cur' : ''}${state}" data-goto="${vi}.${wi}" aria-current="${cur}" style="--i:${wi}">
       <span class="greek wk-g">${esc(w.text)}</span>${under}</button>`;
   }).join(' ');
   const translating = s.at.w >= verse.words.length;
+  const lineEnter = ui.lastVerse !== `${s.id}:${vi}`;
+  ui.lastVerse = `${s.id}:${vi}`;
   return `<li class="wk-verse current">
     <div class="wk-vlabel">${esc(verseLabel(s, verse))}</div>
-    <div class="wk-line">${words}</div>
+    <div class="wk-line${lineEnter ? ' enter' : ''}">${words}</div>
     ${translating ? '' : renderCard(s, verse, vi, s.at.w)}
     <label class="wk-tr-label" for="tr-${vi}">Your translation of verse ${verse.v}</label>
     <textarea id="tr-${vi}" class="wk-tr${translating ? ' current' : ''}" data-tr="${vi}" rows="2" lang="en" placeholder="Write it in your own English">${esc(s.translations[vi] ?? '')}</textarea>
@@ -463,7 +533,9 @@ function renderTranslateCard(s, verse, vi) {
     const parse = walkFields(w, { parseArticles: true }).length ? describeParse(w) : classLabel(w);
     return `<tr><td class="greek">${esc(w.word)}</td><td>${esc(gloss)}</td><td class="muted">${esc(parse)}</td></tr>`;
   }).join('');
-  return `<section class="wk-card wk-translate">
+  const enter = ui.lastCard !== `${s.id}:${vi}.t`;
+  ui.lastCard = `${s.id}:${vi}.t`;
+  return `<section class="wk-card wk-translate wk-tilt${enter ? ' enter' : ''}">
     <h2>Now translate verse ${verse.v}</h2>
     <p>You have been through every word. Write the verse above in natural English: find the main verb and its subject first, then attach the rest.</p>
     <details><summary>Your word-by-word notes</summary><table class="wk-notes">${rows}</table></details>
@@ -484,11 +556,15 @@ function renderCard(s, verse, vi, wi) {
       <span class="muted">word ${wi + 1} of ${verse.words.length}</span>
     </div>`;
   const back = `<button class="btn" type="button" data-action="prev"${vi === 0 && wi === 0 ? ' disabled' : ''}>← Back</button>`;
+  const key = `${s.id}:${vi}.${wi}`;
+  const fx = `wk-tilt${ui.lastCard !== key ? ' enter' : ''}${ui.fx ? ` fx-${ui.fx}` : ''}${stage === 'summary' ? ' flipped' : ''}`;
+  ui.lastCard = key;
+  ui.fx = null;
 
   if (stage === 'class') {
     const buttons = Object.entries(CLASSES).map(([key, label]) =>
       `<button class="btn wk-choice" type="button" data-action="class" data-cls="${key}">${label}</button>`).join('');
-    return `<section class="wk-card">${head}
+    return `<section class="wk-card ${fx}">${head}
       <h2>What kind of word is this?</h2>
       <div class="wk-choices">${buttons}</div>
       <p class="hint">Look at the ending. Verbs end in person endings (‑ω, ‑ει, ‑ουσιν, ‑εται, ‑σεν…); nouns, adjectives, articles and pronouns end in case endings (‑ος, ‑ου, ‑ῳ, ‑ον, ‑η, ‑ης…). Words that never change are prepositions, conjunctions, adverbs or particles. <button class="linkish" type="button" data-action="cheat">Endings cheat sheet</button></p>
@@ -512,7 +588,7 @@ function renderCard(s, verse, vi, wi) {
       return `<div class="wk-field${mark === false ? ' bad' : ''}"><span class="wk-flabel">${FIELDS[f].label}${flag}</span><div class="wk-segs">${opts}</div></div>`;
     }).join('');
     const tried = a.marks && Object.values(a.marks).some((m) => m === false);
-    return `<section class="wk-card">${head}${classLine}
+    return `<section class="wk-card ${fx}">${head}${classLine}
       <h2>Parse it</h2>
       ${rows}
       ${a.notice ? `<p class="status error">${esc(a.notice)}</p>` : ''}
@@ -539,7 +615,7 @@ function renderCard(s, verse, vi, wi) {
     </div>`;
   const hints = renderingHints(word).map((h) => `<li>${esc(h)}</li>`).join('');
   const lastWord = wi === verse.words.length - 1;
-  return `<section class="wk-card">${head}${classLine}${parsed}
+  return `<section class="wk-card ${fx}">${head}${classLine}${parsed}
     <h3>Dictionary form</h3>${lex}
     ${hints ? `<h3>What this means for your translation</h3><ul class="wk-hints">${hints}</ul>` : ''}
     <div class="wk-card-actions">
@@ -572,10 +648,23 @@ function renderDone(s) {
       <p class="wk-detail-tr">${esc(s.translations[vi]?.trim() || '[not translated]')}</p>
     </section>`;
   }).join('') : '';
-  const score = [];
-  if (p.classAsked) score.push(`word class right ${p.classRight} of ${p.classAsked}`);
-  if (p.parsed) score.push(`parsed right first time ${p.parsedRight} of ${p.parsed}`);
+  const tally = [];
+  if (p.classAsked) tally.push(`word class right ${p.classRight} of ${p.classAsked}`);
+  if (p.parsed) tally.push(`parsed right first time ${p.parsedRight} of ${p.parsed}`);
+  const xp = score(s);
+  const acc = p.parsed ? Math.round((p.parsedRight / p.parsed) * 100) : null;
+  const celebrate = ui.celebrate;
+  ui.celebrate = false;
   return `
+  <section class="wk-trophy no-print${celebrate ? ' enter' : ''}">
+    <div class="wk-cup" aria-hidden="true"><span>🏆</span></div>
+    <h2>${esc(s.label)} translated!</h2>
+    <div class="wk-medals">
+      <div class="wk-medal gold"><b>${xp}</b><small>XP · level ${level(xp).level}</small></div>
+      <div class="wk-medal"><b>${s.best ?? 0}</b><small>best streak</small></div>
+      <div class="wk-medal"><b>${acc == null ? '—' : `${acc}%`}</b><small>parsed first time</small></div>
+    </div>
+  </section>
   <div class="wk-done-bar no-print">
     <button class="btn btn-primary" type="button" data-action="print">Print / save as PDF</button>
     <button class="btn" type="button" data-action="copy">Copy text</button>
@@ -587,13 +676,13 @@ function renderDone(s) {
     <label class="toggle"><input type="checkbox" data-show="showGreek"${ui.showGreek ? ' checked' : ''}> Include the Greek</label>
     <label class="toggle"><input type="checkbox" data-show="showNotes"${ui.showNotes ? ' checked' : ''}> Include my word-by-word parsing</label>
   </div>
-  <article class="wk-final">
+  <article class="wk-final${celebrate ? ' enter' : ''}">
     <h1>${esc(s.label)}</h1>
     <p class="wk-final-text">${body}</p>
     <p class="wk-final-meta">My translation · ${esc(formatDate(new Date(s.finished ?? s.updated)))} · Greek text: SBL Greek New Testament</p>
     ${detail}
   </article>
-  ${score.length ? `<p class="wk-score no-print">This session: ${score.join(', ')}. ${p.translated} of ${p.verses} verse${p.verses === 1 ? '' : 's'} translated.</p>` : ''}
+  ${tally.length ? `<p class="wk-score no-print">This session: ${tally.join(', ')}. ${p.translated} of ${p.verses} verse${p.verses === 1 ? '' : 's'} translated.</p>` : ''}
   <div class="wk-done-bar no-print">
     <button class="btn" type="button" data-action="edit">← Back to the passage</button>
     <button class="btn btn-quiet" type="button" data-action="home">Start another passage</button>

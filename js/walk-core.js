@@ -196,6 +196,8 @@ export function newSession({ label, verses, now = Date.now(), id }) {
     answers: {},
     translations: verses.map(() => ''),
     opts: { askClass: true, parseArticles: false },
+    streak: 0,
+    best: 0,
     finished: null,
   };
 }
@@ -242,6 +244,29 @@ export function progress(session) {
   });
   const translated = session.translations.filter((t) => t?.trim()).length;
   return { words, done, classAsked, classRight, parsed, parsedRight, verses: session.verses.length, translated };
+}
+
+// ---------------------------------------------------------------------------
+// Points, levels and streaks
+
+export const POINTS = { cls: 10, parse: 20, verse: 30 };
+export const LEVEL_SIZE = 100;
+
+/** Experience points, derived from the answers so they can never drift. */
+export function score(session) {
+  const p = progress(session);
+  return p.classRight * POINTS.cls + p.parsedRight * POINTS.parse + p.translated * POINTS.verse;
+}
+
+export function level(xp) {
+  return { level: Math.floor(xp / LEVEL_SIZE) + 1, into: xp % LEVEL_SIZE, size: LEVEL_SIZE };
+}
+
+/** Record a first-try result: a right answer extends the streak, a wrong one ends it. */
+export function recordStreak(session, right) {
+  session.streak = right ? (session.streak ?? 0) + 1 : 0;
+  session.best = Math.max(session.best ?? 0, session.streak);
+  return session.streak;
 }
 
 /** The position after the current one: next word, the verse's translation step, or the next verse. */

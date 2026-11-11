@@ -6,7 +6,7 @@
 //  - Google Fonts and MorphGNT data files: cache first (they never change for
 //    a given URL), so the Greek text you have read stays readable offline.
 
-const SHELL_CACHE = 'anagnosis-shell-v3';
+const SHELL_CACHE = 'anagnosis-shell-v4';
 const ASSET_CACHE = 'anagnosis-assets-v2';
 
 const SHELL = [
@@ -16,6 +16,7 @@ const SHELL = [
   './css/walk.css',
   './js/walk.js',
   './js/walk-core.js',
+  './js/walk-fx.js',
   './manifest.webmanifest',
   './css/style.css',
   './js/main.js',
